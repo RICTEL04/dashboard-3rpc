@@ -37,7 +37,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
 
         </div>
-        <ChatWidget />
+        <Suspense fallback={null}>
+          <ChatWidget />
+        </Suspense>
       </body>
     </html>
   );

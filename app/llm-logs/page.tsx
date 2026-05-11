@@ -56,7 +56,9 @@ function groupSum<T>(arr: T[], groupKey: keyof T, valueKey: keyof T) {
     .sort((a, b) => b.value - a.value);
 }
 
-export default function LlmLogsPage() {
+import { Suspense } from 'react';
+
+function LlmLogsContent() {
   const sp    = useSearchParams();
   const hours = Math.max(Number(sp.get('h') ?? 24), 1);
   const [gran, setGran] = useState('10min');
@@ -296,5 +298,18 @@ export default function LlmLogsPage() {
       )}
 
     </div>
+  );
+}
+
+export default function LlmLogsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64 gap-3 text-text-secondary">
+        <span className="w-5 h-5 rounded-full border-2 border-brand-green border-t-transparent animate-spin" />
+        Cargando LLM Logs…
+      </div>
+    }>
+      <LlmLogsContent />
+    </Suspense>
   );
 }
