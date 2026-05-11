@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import './globals.css';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { ChatWidget } from '@/components/ui/ChatWidget';
 
 export const metadata: Metadata = {
   title: '3RPC · SAP Security Monitor',
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
 
         </div>
+        <ChatWidget />
       </body>
     </html>
   );

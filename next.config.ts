@@ -1,8 +1,11 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const config: NextConfig = {
-  // Prevents Next.js from bundling the native HANA client (needs .node binaries)
   serverExternalPackages: ['@sap/hana-client'],
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
 };
 
 export default config;
