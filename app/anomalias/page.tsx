@@ -414,7 +414,7 @@ export default function AnomaliesPage() {
             ) : (
               <div className="space-y-1">
                 {filtered
-                  .sort((a, b) => a.anomaly_score - b.anomaly_score)
+                  .sort((a, b) => new Date(b.bucket_start).getTime() - new Date(a.bucket_start).getTime())
                   .map((a) => (
                     <AnomalyCard key={a.anomaly_id} a={a} isSelected={a.anomaly_id === selectedId} />
                   ))}
