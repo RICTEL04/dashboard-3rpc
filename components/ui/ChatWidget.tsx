@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Bot, X, Send, Loader2, ChevronDown, Sparkles, RefreshCw } from 'lucide-react';
+import { Bot, X, Send, Loader2, ChevronDown, Sparkles, RefreshCw, FileDown } from 'lucide-react';
+import { generatePdf, type ReportData } from '@/lib/generatePdf';
 
 interface Message {
   role: 'user' | 'model';
@@ -101,6 +102,7 @@ export function ChatWidget() {
   const [loading, setLoading]   = useState(false);
   const [context, setContext]   = useState<string>('');
   const [ctxLoading, setCtxLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
   const searchParams = useSearchParams();
@@ -191,6 +193,29 @@ export function ChatWidget() {
     initChat();
   };
 
+  const handleGenerateReport = useCallback(async () => {
+    if (!context || generating) return;
+    setGenerating(true);
+    try {
+      const res = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context, hours }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      await generatePdf(data.report as ReportData);
+    } catch (err) {
+      console.error('[generateReport]', err);
+      setMessages((prev) => [...prev, {
+        role: 'model',
+        text: 'No se pudo generar el reporte PDF. Intenta de nuevo.',
+      }]);
+    } finally {
+      setGenerating(false);
+    }
+  }, [context, hours, generating]);
+
   return (
     <>
       {/* Toggle button */}
@@ -237,6 +262,17 @@ export function ChatWidget() {
               className="text-text-muted hover:text-brand-blue transition-colors disabled:opacity-40 mr-1"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${ctxLoading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={handleGenerateReport}
+              disabled={!context || generating || ctxLoading}
+              title="Generar reporte técnico PDF"
+              className="text-text-muted hover:text-brand-blue transition-colors disabled:opacity-40 mr-1"
+            >
+              {generating
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <FileDown className="w-3.5 h-3.5" />
+              }
             </button>
             <button
               onClick={() => setOpen(false)}
