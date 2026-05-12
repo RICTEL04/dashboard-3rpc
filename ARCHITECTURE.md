@@ -28,7 +28,7 @@
 
 ## 1. Descripción general
 
-**3RPC Dashboard** es el frontend de monitoreo del pipeline de detección de anomalías 3RPC. Consume los datos almacenados en SAP HANA Cloud por el pipeline Python (ETL + ML) y los presenta en una interfaz web oscura en tiempo cuasi-real.
+**3RPC Dashboard** es el frontend de monitoreo del pipeline de detección de anomalías 3RPC. Consume los datos almacenados en SAP HANA Cloud por el pipeline Python (ETL + ML) y los presenta en una interfaz web en tiempo casi real.
 
 ### Capacidades principales
 
