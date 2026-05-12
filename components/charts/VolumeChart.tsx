@@ -185,7 +185,9 @@ function AnomalyShape(props: any) {
   const stroke = '#0d1117';
   const sw     = 1.5;
 
-  const handleClick = () => {
+  const handleMouseDown = (e: React.MouseEvent) => e.stopPropagation();
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (onAnomalyClick && payload?.anomaly_id) onAnomalyClick(payload.anomaly_id);
   };
 
@@ -202,7 +204,11 @@ function AnomalyShape(props: any) {
   );
 
   return (
-    <g onClick={handleClick} style={{ cursor: onAnomalyClick && payload?.anomaly_id ? 'pointer' : 'default' }}>
+    <g
+      onClick={handleClick}
+      onMouseDown={handleMouseDown}
+      style={{ cursor: onAnomalyClick && payload?.anomaly_id ? 'pointer' : 'default' }}
+    >
       <circle cx={cx} cy={cy} r={12} fill="transparent" />
       {shape}
     </g>
