@@ -1,6 +1,6 @@
 # 3RPC Dashboard
 
-Frontend de monitoreo del pipeline de detección de anomalías 3RPC. Visualiza en tiempo cuasi-real los datos almacenados en SAP HANA Cloud: anomalías ML, logs de sistema SAP, logs de modelos LLM y un resumen ejecutivo consolidado. Incluye un chat asistente con IA (Gemini 2.5 Flash) y generación de reportes técnicos descargables en PDF.
+Frontend de monitoreo del pipeline de detección de anomalías 3RPC. Visualiza en tiempo casi real los datos almacenados en SAP HANA Cloud: anomalías ML, logs de sistema SAP, logs de modelos LLM y un resumen ejecutivo consolidado. Incluye un chat asistente con IA (Gemini 2.5 Flash) y generación de reportes técnicos descargables en PDF.
 
 ---
 
