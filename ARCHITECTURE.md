@@ -665,15 +665,12 @@ interface LlmLog {
 
 | # | Riesgo | Probabilidad | Impacto | Mitigación |
 |---|---|---|---|---|
-| 1 | **API key Gemini expuesta** | Baja | Crítico | La key solo existe en variables de entorno server-side. Las API Routes son el único punto de acceso. El cliente nunca recibe ni puede inferir la key. |
-| 2 | **Saturación de conexiones HANA** | Media | Alto | Conexión nueva por query (no pool permanente). HANA Cloud permite ~100 conexiones simultáneas por instancia; con 4 rutas y refresh de 60s, el pico es <10 conexiones/min. |
-| 3 | **Datos desactualizados en ventana de 55s** | Alta | Bajo | Aceptado por diseño. El pipeline Python detecta anomalías cada ~30 min; una ventana de 55s de stale data es irrelevante para el caso de uso de monitoreo. |
-| 4 | **JSON inválido devuelto por Gemini** | Baja | Medio | `JSON.parse` falla explícitamente; el catch devuelve 500 con mensaje descriptivo. El ChatWidget muestra el error al usuario. Pendiente: reintentar la llamada automáticamente. |
-| 5 | **Memoria en browser para PDFs grandes** | Baja | Bajo | jsPDF construye el PDF en memoria. Para >100 hallazgos, el blob puede exceder 10MB. Mitigación: el prompt de Gemini limita hallazgos a los más relevantes; en la práctica los reportes son <500KB. |
-| 6 | **HANA SSL sin validación de certificado** | Media | Medio | `sslValidateCertificate: false` expone a MITM en red no controlada. En CF la conexión sale por red privada SAP BTP — riesgo real bajo. Para producción, configurar `sslTrustStore` con el certificado de HANA. |
-| 7 | **Timeout de queries HANA lentas** | Baja | Medio | Queries con `h=168` sobre millones de filas pueden tardar >30s. El driver no tiene timeout configurable en este wrapper. Mitigación: añadir `LIMIT` en queries grandes o índice sobre `timestamp` en HANA. |
-| 8 | **Build fallido por binarios nativos en CF** | Baja | Alto | `@sap/hana-client` descarga binarios según plataforma en `npm install`. CF usa Linux x64; el buildpack instala dependencias en el contenedor. Si el binario no está disponible para la versión de Node.js del buildpack, el deploy falla. Monitorear compatibilidad al actualizar Node.js. |
+| 1 | **Saturación de conexiones HANA** | Media | Alto | Conexión nueva por query (no pool permanente). HANA Cloud permite ~100 conexiones simultáneas por instancia; con 4 rutas y refresh de 60s, el pico es <10 conexiones/min. |
+| 2 | **Datos desactualizados en ventana de 55s** | Alta | Bajo | Aceptado por diseño. El pipeline Python detecta anomalías cada ~30 min; una ventana de 55s de stale data es irrelevante para el caso de uso de monitoreo. |
+| 3 | **JSON inválido devuelto por Gemini** | Baja | Medio | `JSON.parse` falla explícitamente; el catch devuelve 500 con mensaje descriptivo. El ChatWidget muestra el error al usuario. Pendiente: reintentar la llamada automáticamente. |
+| 4 | **Memoria en browser para PDFs grandes** | Baja | Bajo | jsPDF construye el PDF en memoria. Para >100 hallazgos, el blob puede exceder 10MB. Mitigación: el prompt de Gemini limita hallazgos a los más relevantes; en la práctica los reportes son <500KB. |
+| 5 | **HANA SSL sin validación de certificado** | Media | Medio | `sslValidateCertificate: false` expone a MITM en red no controlada. En CF la conexión sale por red privada SAP BTP — riesgo real bajo. Para producción, configurar `sslTrustStore` con el certificado de HANA. |
+| 6 | **Timeout de queries HANA lentas** | Baja | Medio | Queries con `h=168` sobre millones de filas pueden tardar >30s. El driver no tiene timeout configurable en este wrapper. Mitigación: añadir `LIMIT` en queries grandes o índice sobre `timestamp` en HANA. |
+| 7 | **Build fallido por binarios nativos en CF** | Baja | Alto | `@sap/hana-client` descarga binarios según plataforma en `npm install`. CF usa Linux x64; el buildpack instala dependencias en el contenedor. Si el binario no está disponible para la versión de Node.js del buildpack, el deploy falla. Monitorear compatibilidad al actualizar Node.js. |
 
 ---
-
-*Arquitectura documentada a partir del código fuente — versión 2.0.*
