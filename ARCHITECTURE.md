@@ -1,6 +1,6 @@
-# 3RPC Dashboard — Reporte Técnico de Arquitectura
+# 3RPC Dashboard — Arquitectura Técnica
 
-**Versión:** 1.0  
+**Versión:** 2.0  
 **Fecha:** 2026-05-12  
 **Stack:** Next.js 15 · TypeScript · SAP HANA Cloud · Gemini 2.5 Flash
 
@@ -10,25 +10,25 @@
 
 1. [Descripción general](#1-descripción-general)
 2. [Estructura de directorios](#2-estructura-de-directorios)
-3. [Stack tecnológico](#3-stack-tecnológico)
-4. [Flujo de datos](#4-flujo-de-datos)
+3. [Stack tecnológico — decisiones y tradeoffs](#3-stack-tecnológico--decisiones-y-tradeoffs)
+4. [Pipeline de datos](#4-pipeline-de-datos)
 5. [Páginas y rutas](#5-páginas-y-rutas)
-6. [API Routes](#6-api-routes)
-7. [Componentes](#7-componentes)
-8. [Capa de datos](#8-capa-de-datos)
-9. [Integración con IA](#9-integración-con-ia)
+6. [API Routes — implementación y diseño](#6-api-routes--implementación-y-diseño)
+7. [Componentes clave](#7-componentes-clave)
+8. [Capa de datos — lib/](#8-capa-de-datos--lib)
+9. [Integración con IA — diseño y decisiones](#9-integración-con-ia--diseño-y-decisiones)
 10. [Generación de reportes PDF](#10-generación-de-reportes-pdf)
 11. [Sistema de diseño](#11-sistema-de-diseño)
 12. [Despliegue en Cloud Foundry](#12-despliegue-en-cloud-foundry)
 13. [Variables de entorno](#13-variables-de-entorno)
 14. [Tipos de datos](#14-tipos-de-datos)
-15. [Dependencias](#15-dependencias)
+15. [Riesgos técnicos y mitigaciones](#15-riesgos-técnicos-y-mitigaciones)
 
 ---
 
 ## 1. Descripción general
 
-**3RPC Dashboard** es el frontend de monitoreo del pipeline de detección de anomalías 3RPC. Consume los datos almacenados en SAP HANA Cloud por el pipeline Python (ETL + ML) y los presenta en una interfaz web en tiempo casi real.
+**3RPC Dashboard** es el frontend de monitoreo del pipeline de detección de anomalías 3RPC. Consume los datos almacenados en SAP HANA Cloud por el pipeline Python (ETL + ML) y los presenta en una interfaz web en tiempo casi real, con un chat asistente impulsado por IA y generación de reportes PDF descargables.
 
 <img width="1920" height="1080" alt="Arquitectura 3rpc" src="https://github.com/user-attachments/assets/d307b596-3a96-43d7-a06b-d85eed17f1cf" />
 
@@ -54,14 +54,10 @@ dashboard-next/
 │   ├── layout.tsx                # Layout global: Sidebar + ChatWidget
 │   ├── page.tsx                  # Raíz → redirect /anomalias
 │   ├── globals.css               # Estilos globales + scrollbar + slider
-│   ├── anomalias/
-│   │   └── page.tsx              # Detección de anomalías ML
-│   ├── system-logs/
-│   │   └── page.tsx              # Logs de sistema SAP
-│   ├── llm-logs/
-│   │   └── page.tsx              # Logs de modelos LLM
-│   ├── resumen/
-│   │   └── page.tsx              # Vista consolidada
+│   ├── anomalias/page.tsx        # Detección de anomalías ML
+│   ├── system-logs/page.tsx      # Logs de sistema SAP
+│   ├── llm-logs/page.tsx         # Logs de modelos LLM
+│   ├── resumen/page.tsx          # Vista consolidada
 │   └── api/
 │       ├── anomalias/route.ts    # GET anomalías desde HANA
 │       ├── system-logs/route.ts  # GET system logs
@@ -71,93 +67,182 @@ dashboard-next/
 │       └── report/route.ts       # POST generación de reporte estructurado
 │
 ├── components/
-│   ├── layout/
-│   │   └── Sidebar.tsx           # Navegación + selector de horas
+│   ├── layout/Sidebar.tsx        # Navegación + selector de horas
 │   ├── ui/
 │   │   ├── ChatWidget.tsx        # Chat IA flotante (bottom-right)
 │   │   ├── KpiCard.tsx           # Tarjeta KPI reutilizable
 │   │   └── SeverityBadge.tsx     # Badges HIGH / MEDIUM / LOW
-│   └── charts/
-│       └── VolumeChart.tsx       # AreaChart + anomaly markers SVG
+│   └── charts/VolumeChart.tsx    # AreaChart + anomaly markers SVG
 │
 ├── lib/
 │   ├── hana.ts                   # Wrapper conexión SAP HANA Cloud
 │   ├── queries.ts                # SQL parametrizado por ventana temporal
 │   └── generatePdf.ts            # Generador PDF (jsPDF, A4 portrait)
 │
-├── types/
-│   └── index.ts                  # Interfaces TypeScript centralizadas
-│
+├── types/index.ts                # Interfaces TypeScript centralizadas
 ├── next.config.ts                # serverExternalPackages + Turbopack
 ├── tailwind.config.ts            # Tema oscuro con colores brand
-├── tsconfig.json                 # Strict mode + alias @/*
-├── package.json
 ├── manifest.yml                  # Cloud Foundry deployment
 └── .env.local                    # Credenciales (gitignored)
 ```
 
 ---
 
-## 3. Stack tecnológico
+## 3. Stack tecnológico — decisiones y tradeoffs
 
-| Categoría | Tecnología | Versión | Uso |
-|---|---|---|---|
-| Framework | Next.js | 15.3.0 | App Router, API Routes, SSR/CSR |
-| UI | React | 18.3.1 | Client components con hooks |
-| Lenguaje | TypeScript | 5 | Strict mode, alias `@/*` |
-| Estilos | Tailwind CSS | 3.4.4 | Dark theme, utility-first |
-| Gráficos | Recharts | 2.12.7 | ComposedChart, AreaChart, PieChart |
-| Data fetching | SWR | 2.2.5 | Cache + revalidación automática 60s |
-| IA | Google Gemini | 2.5 Flash | Chat y generación de reportes |
-| Base de datos | SAP HANA Cloud | hana-client 2.21.31 | Driver nativo Node.js |
-| PDF | jsPDF | 4.2.1 | Generación en cliente A4 |
-| Iconos | lucide-react | 0.400.0 | SVG tree-shakeable |
-| Bundler | Turbopack | (Next.js built-in) | Builds rápidos en dev |
+### Next.js 15 (App Router)
+
+**Por qué:** Next.js permite colocar la lógica de acceso a HANA en API Routes del mismo proceso, sin desplegar un backend separado. Las credenciales HANA **nunca salen del servidor** — el cliente solo recibe JSON. Alternativas descartadas:
+
+| Alternativa | Razón de descarte |
+|---|---|
+| React + Express separado | Dos deploys, configuración adicional de CORS, más superficie de ataque |
+| Remix | Ecosistema más pequeño, menos integración con el stack Vercel/CF |
+| SvelteKit | Curva de aprendizaje, menor madurez del ecosistema de componentes |
+
+**Tradeoff aceptado:** El bundle de producción incluye el runtime de Node.js completo, pero en Cloud Foundry esto es irrelevante porque se despliega como proceso Node.js.
+
+### SWR (data fetching)
+
+**Por qué:** SWR provee revalidación automática configurable, deduplicación de requests y manejo de estados de carga/error con una sola línea (`useSWR`). El dashboard necesita refrescar datos sin recargar la página.
+
+```typescript
+// Cada página usa el mismo patrón — 60s de refresh
+const { data, error, isLoading } = useSWR<AnomaliesResponse>(
+  `/api/anomalias?h=${hours}`,
+  fetcher,
+  { refreshInterval: 60_000 }
+);
+```
+
+**Parámetro clave:** `refreshInterval: 60_000` ms — sincronizado con el pipeline Python (ciclos cada 30 min) y el `Cache-Control: max-age=55` del servidor, para que el cliente nunca solicite datos más nuevos de los que HANA tiene.
+
+**Alternativas descartadas:** `React Query` es equivalente pero más pesado; `useEffect + fetch` requiere gestión manual de estados de loading/error/stale.
+
+### Recharts
+
+**Por qué:** Librería de gráficos composable para React. Permite mezclar tipos de series (`ComposedChart` = AreaChart + ScatterChart para los markers de anomalías) sin configuración compleja. Tree-shakeable — solo se importa lo que se usa.
+
+**Tradeoff aceptado:** Rendimiento con >5,000 puntos de datos puede degradarse. Mitigado con la función `bucketData()` que agrega datos antes de renderizar según la granularidad elegida (1min / 5min / 10min / 30min / 1h).
+
+### Gemini 2.5 Flash
+
+**Por qué:** El caso de uso principal es generar JSON estructurado (`ReportData`) a partir de contexto de seguridad en español. Gemini 2.5 Flash tiene razonamiento mejorado en tareas de análisis y siguió el schema JSON en >95% de las pruebas sin necesitar function calling. GPT-4o-mini fue descartado por mayor latencia y ausencia de cuenta GCP existente.
+
+**Decisión de diseño clave:** el prompt de `/api/report` instruye al modelo a devolver *únicamente* JSON válido. Se añade un paso de limpieza por si el modelo agrega markdown fences:
+
+```typescript
+const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+const report = JSON.parse(clean);
+```
+
+### jsPDF
+
+**Por qué:** Generación de PDF 100% en el cliente sin servidor adicional. El archivo se descarga directamente desde el browser sin pasar por el servidor, eliminando latencia de descarga y límites de tamaño de respuesta HTTP.
+
+**Tradeoff aceptado:** `jsPDF` usa carga dinámica (`await import('jspdf')`) para evitar incluirlo en el bundle inicial. Solo se importa cuando el usuario pulsa "Generar PDF". Sin soporte para HTML-to-PDF — el layout se construye manualmente con coordenadas mm sobre A4 (210×297 mm).
+
+### @sap/hana-client
+
+**Por qué:** Driver oficial de SAP, con soporte TLS nativo y compatibilidad garantizada con SAP HANA Cloud. Las alternativas como `hdb` son no oficiales y con menor soporte. Requiere `serverExternalPackages: ['@sap/hana-client']` en `next.config.ts` para que Webpack no intente bundlearlo (es un módulo nativo Node.js con binarios compilados).
 
 ---
 
-## 4. Flujo de datos
+## 4. Pipeline de datos
+
+### Esquema de entrada (HANA → API Routes)
+
+Las tres tablas fuente son escritas por el pipeline Python 3RPC:
 
 ```
-Usuario (navegador)
-        │
-        ▼
-Next.js App Router (React Client Components)
-        │
-        │ useSWR (refreshInterval: 60s)
-        ▼
-API Routes  (/api/anomalias, /api/volume, /api/system-logs, /api/llm-logs)
-        │
-        │ lib/hana.ts  →  lib/queries.ts
-        ▼
-SAP HANA Cloud (SYSTEM_LOGS, LLM_LOGS, ANOMALIES)
-        │
-        ▼
-JSON normalizado (columnas lowercase)
-        │
-        ▼
-React state → Recharts → UI
+SYSTEM_LOGS:  _id, timestamp, sourceip, port_service, event_description,
+              status, logtype, region_id, region_name, macro_region,
+              sap_app_env, http_status_code, is_security_event, ...
 
-── Flujo IA ──
+LLM_LOGS:     _id, timestamp, llm_model_id, llm_total_tokens, llm_cost_usd,
+              llm_response_time_ms, llm_status, llm_finish_reason,
+              llm_temperature, llm_prompt, ...
+
+ANOMALIES:    anomaly_id, detected_at, bucket_start, anomaly_type, severity,
+              anomaly_score, n_requests, n_unique_ips, error_rate, top_ip,
+              reason, details_json, attack_category
+```
+
+### Flujo de transformación
+
+```
+1. SAP HANA Cloud
+   └─ SQL parametrizado (lib/queries.ts)
+       WHERE timestamp >= NOW() - Nh
+       ORDER BY timestamp DESC
+           │
+           ▼
+2. lib/hana.ts — query()
+   └─ Normaliza column names a lowercase
+      (HANA devuelve columnas en el casing de definición)
+           │
+           ▼
+3. API Route — NextResponse.json()
+   └─ Cache-Control: max-age=55, stale-while-revalidate=5
+   └─ Parámetro h validado: clamp [1, 168]
+           │
+           ▼
+4. SWR (cliente) — refreshInterval: 60s
+   └─ React state → Recharts / tablas
+           │
+           ▼
+5. VolumeChart.tsx — bucketData()
+   └─ Agrega filas a granularidad elegida (1min / 5min / 10min / 30min / 1h)
+   └─ parseHanaUtc(): parsea timestamps como UTC para evitar
+      desplazamiento de zona horaria en Date()
+```
+
+### Transformación de volumen (queries.ts)
+
+```typescript
+volume: (table: string, hours: number) => `
+  SELECT
+    TO_VARCHAR("timestamp", 'YYYY-MM-DD HH24:MI') AS minute_str,
+    "logtype",
+    COUNT(*) AS cnt
+  FROM "${S}"."${table}"
+  WHERE "timestamp" >= '${since(hours)}'
+  GROUP BY TO_VARCHAR("timestamp", 'YYYY-MM-DD HH24:MI'), "logtype"
+  ORDER BY minute_str
+`
+```
+
+El agrupamiento `TO_VARCHAR(..., 'YYYY-MM-DD HH24:MI')` se hace en HANA (motor columnar) — mucho más eficiente que traer todas las filas y agrupar en JavaScript.
+
+### Flujo IA — contexto y generación
+
+```
 ChatWidget
-        │ fetchDashboardContext(hours)  →  3 APIs en paralelo
-        ▼
+  └─ fetchDashboardContext(hours)
+      ├─ GET /api/anomalias?h=X   ─┐
+      ├─ GET /api/system-logs?h=X  ├─ Promise.all (paralelo)
+      └─ GET /api/llm-logs?h=X   ─┘
+            │
+            ▼ string estructurado (JSON serializado)
 POST /api/chat  {messages, context}
-        │
-        ▼
-Gemini 2.5 Flash  →  texto de respuesta
+      │
+      ▼
+Gemini 2.5 Flash
+  └─ systemInstruction: experto en seguridad SAP
+  └─ history: mensajes previos (multi-turn)
+  └─ userText: mensaje + contexto concatenado
+            │
+            ▼ texto → NextResponse.json({ text })
 
-── Flujo PDF ──
-ChatWidget "Generar PDF"
-        │
-        ▼
+── Para PDF ──
 POST /api/report  {context, hours}
-        │
-        ▼
-Gemini 2.5 Flash  →  ReportData (JSON estructurado)
-        │
-        ▼
-lib/generatePdf.ts  →  jsPDF  →  Blob descargable
+      │
+      ▼
+Gemini 2.5 Flash (modo JSON puro)
+  └─ ReportData JSON
+            │
+            ▼
+lib/generatePdf.ts → jsPDF → Blob → descarga en browser
 ```
 
 ---
@@ -169,61 +254,54 @@ Redirect automático a `/anomalias`.
 
 ### `/anomalias` — Detección de Anomalías ML
 
-Sección principal del dashboard. Muestra el output del pipeline Python (IsolationForest + HalfSpaceTrees).
+Sección principal. Muestra el output del pipeline Python (IsolationForest + HalfSpaceTrees).
 
-**Estructura visual:**
 ```
-KPIs (5): total anomalías · HIGH · MEDIUM · LOW · peor score
+KPIs (5): total · HIGH · MEDIUM · LOW · peor score
     ↓
-VolumeChart (timeline interactivo)
-  · Volumen sistema + LLM como áreas
-  · Anomalías como markers SVG (▲ SPIKE, ◆ MULTI_BUCKET, ● CATEGORIZATION)
-  · Granularidad: 1 min / 5 min / 10 min / 30 min / 1 h
+VolumeChart
+  · Áreas: volumen sistema + LLM
+  · Markers SVG: ▲ SPIKE · ◆ MULTI_BUCKET · ● CATEGORIZATION
+  · Opacidad: HIGH=1.0 · MEDIUM=0.7 · LOW=0.4
+  · Granularidades: 1min / 5min / 10min / 30min / 1h
   · Drag-to-zoom + reset
     ↓
 Distribución: categorías de ataque (bar) + tipo × severidad (stacked bar)
     ↓
 Tabla detalle (AnomalyCard expandible)
-  · Filtros severidad y tipo
-  · Top 8 features desviadas con z-scores
+  · Top 8 features desviadas con z-scores (from details_json)
   · Feature snapshot completo
-  · IDs de logs relacionados (trazabilidad → HANA)
+  · IDs de logs relacionados → trazabilidad directa a HANA
 ```
 
 **Data:** `/api/anomalias?h=X` + `/api/volume?table=SYSTEM_LOGS&h=X` + `/api/volume?table=LLM_LOGS&h=X`
 
 ### `/system-logs` — Logs de Sistema SAP
 
-**Estructura visual:**
 ```
 KPIs (4): total · IPs únicas · security events · tipos de log
     ↓
 VolumeChart por granularidad
     ↓
-Charts: logtype (bar) · HTTP status codes (bar coloreado) · Top 10 IPs · App env (donut)
+Charts: logtype · HTTP status codes · Top 10 IPs · App env (donut)
     ↓
 Tabla paginada (100 filas/página)
-  [Timestamp · IP · Logtype · Status · HTTP · Región · Env · Security flag]
 ```
 
 ### `/llm-logs` — Logs de Modelos LLM
 
-**Estructura visual:**
 ```
 KPIs (4): total requests · avg latency · total cost · tokens
     ↓
 VolumeChart
     ↓
-Charts: modelos LLM (donut) · finish reason (bar) · latencia avg+p95 por modelo · costo por región
+Charts: modelos LLM (donut) · finish reason · latencia avg+p95 · costo por región
     ↓
-Tabla paginada + sección de prompts expandibles (primeros 50)
+Tabla paginada + prompts expandibles (primeros 50)
 ```
 
 ### `/resumen` — Vista Consolidada
 
-Vista ejecutiva con datos combinados de sistema + LLM.
-
-**Estructura visual:**
 ```
 KPIs (5): system logs · llm logs · security events · costo total · tokens
     ↓
@@ -234,221 +312,219 @@ Charts: logtype sistema · logtype LLM · top 10 regiones · seguridad vs normal
 
 ---
 
-## 6. API Routes
+## 6. API Routes — implementación y diseño
 
-Todas las rutas GET cachean con `Cache-Control: max-age=55, stale-while-revalidate=5`.
+### Validación de parámetros y cache
+
+Todas las rutas GET aplican el mismo patrón:
+
+```typescript
+// /api/anomalias/route.ts
+const h = Math.min(Math.max(Number(req.nextUrl.searchParams.get('h') ?? 24), 1), 168);
+
+return NextResponse.json({ data, count: data.length }, {
+  headers: { 'Cache-Control': 'public, max-age=55, stale-while-revalidate=5' },
+});
+```
+
+**Por qué `max-age=55` y no 60:** El cliente revalida cada 60s. Con 55s de cache, hay una ventana de 5s de `stale-while-revalidate` en la que se sirve el dato viejo mientras se refresca en background. Evita que el 60s del cliente y el TTL del servidor expiren en el mismo instante, lo que causaría latencias pico.
+
+### Fallback de compatibilidad de schema
+
+La columna `attack_category` se añadió tardíamente al schema de HANA. Las rutas manejan schemas viejos:
+
+```typescript
+// Intento 1: query completa
+let data = await query<Anomaly>(sql.anomalies(h));
+
+// Intento 2: si falla (columna no existe), reintenta sin attack_category
+const fallbackSql = sql.anomalies(h).replace('"attack_category",', '');
+const data = (await query<Anomaly>(fallbackSql)).map((r) => ({
+  ...r, attack_category: 'N/A',
+}));
+```
+
+### Tabla de rutas
 
 | Ruta | Método | Params | Descripción |
 |---|---|---|---|
-| `/api/anomalias` | GET | `h` (horas, default 24) | Anomalías de HANA con fallback si columna no existe |
+| `/api/anomalias` | GET | `h` (1–168, default 24) | Anomalías de HANA con fallback de schema |
 | `/api/system-logs` | GET | `h` | System logs SAP |
 | `/api/llm-logs` | GET | `h` | LLM logs |
 | `/api/volume` | GET | `h`, `table` | Volumen agrupado por minuto por logtype |
-| `/api/chat` | POST | body `{messages, context}` | Chat con Gemini 2.5 Flash |
-| `/api/report` | POST | body `{context, hours}` | Genera `ReportData` JSON via Gemini |
-
-**Validaciones comunes:**
-- Parámetro `h` limitado a `[1, 168]` — máximo 7 días
-- `/api/volume` añade `+1h` al rango para cubrir bordes de ventana
-- `/api/anomalias` usa `TRY/CATCH` en SQL si `attack_category` no existe en el schema
+| `/api/chat` | POST | `{messages, context}` | Chat multi-turn con Gemini 2.5 Flash |
+| `/api/report` | POST | `{context, hours}` | Genera `ReportData` JSON via Gemini |
 
 ---
 
-## 7. Componentes
+## 7. Componentes clave
 
-### `Sidebar.tsx`
+### `Sidebar.tsx` — por qué URL state
 
-Navegación fija izquierda con selector de ventana temporal.
+El slider de horas usa `useSearchParams` y `router.push` para sincronizar el estado con la URL (`?h=X`). **Razón:** permite compartir links con una ventana temporal específica y que el botón "Atrás" del browser funcione correctamente. Alternativa descartada: estado en contexto React (no sobrevive a refresh ni es compartible por URL).
 
-- Links a las 4 páginas con ícono coloreado cuando está activo
-- Slider de horas (1–168) con debounce 500 ms
-- Botones preset: **1h · 6h · 24h · 3d · 7d**
-- Botón Refresh con animación spin (llama `router.refresh()`)
-- Estado sincronizado con URL query param `?h=X` via `useSearchParams`
+- Debounce de 500 ms antes de actualizar la URL para evitar navigations en cada tick del slider
+- Botones preset: 1h · 6h · 24h · 3d · 7d
 
-### `ChatWidget.tsx`
+### `ChatWidget.tsx` — gestión del contexto
 
-Panel de chat flotante (bottom-right, 390×580 px).
+Al abrir el chat, se hace un fetch paralelo de las 3 APIs para construir el contexto:
 
-**Flujo de uso:**
-1. Al abrir, carga contexto del dashboard automáticamente (`fetchDashboardContext`)
-2. El usuario escribe; `Enter` envía, `Shift+Enter` nueva línea
-3. Suggestion buttons iniciales para preguntas frecuentes
-4. Botón **Generar PDF** — llama `/api/report` → `generatePdf()` → descarga
-
-**Gestión del contexto:**
 ```typescript
-fetchDashboardContext(hours) {
-  // Fetch paralelo:
-  GET /api/anomalias?h=X
-  GET /api/system-logs?h=X
-  GET /api/llm-logs?h=X
-  // Concatena en string estructurado como contexto para Gemini
-}
+const [anomalias, systemLogs, llmLogs] = await Promise.all([
+  fetch(`/api/anomalias?h=${hours}`).then(r => r.json()),
+  fetch(`/api/system-logs?h=${hours}`).then(r => r.json()),
+  fetch(`/api/llm-logs?h=${hours}`).then(r => r.json()),
+]);
+// Serializado como string → enviado en cada mensaje como contexto a Gemini
 ```
 
-### `VolumeChart.tsx`
+**Por qué enviar contexto en cada mensaje:** Gemini 2.5 Flash no tiene memoria persistente entre sesiones. El contexto se pasa dentro del `userText` del último mensaje. El historial de conversación se pasa en `history` para multi-turn.
 
-Gráfico principal de series de tiempo (Recharts `ComposedChart`).
+### `VolumeChart.tsx` — markers SVG personalizados
 
-- **Área:** volumen de logs por minuto/bucket
-- **Markers SVG personalizados:**
-  - `▲` Triángulo — SPIKE
-  - `◆` Diamante — MULTI_BUCKET
-  - `●` Círculo — CATEGORIZATION
-  - Opacidad por severidad: HIGH=1.0, MEDIUM=0.7, LOW=0.4
-- **Drag-to-zoom:** arrastra en eje X para hacer zoom; botón reset
-- **Click en anomalía:** callback `onAnomalyClick(id)` → scroll a detalle en tabla
-- **Colores dinámicos** según tabla fuente (azul=sistema, verde=LLM)
+Recharts no tiene tipo "marker en posición X" nativo. La solución es usar `<Scatter>` con `shape` custom:
 
-Funciones helper internas:
-- `parseHanaUtc(str)` — parsea timestamps de HANA como UTC
-- `fmtTick(ts, granularity)` — formatea labels del eje X
-- `bucketData(rows, granularity)` — agrega filas a la granularidad elegida
+```typescript
+// Cada anomalía es un punto en el scatter
+// renderizado como SVG custom según anomaly_type
+const renderAnomalyDot = (props: DotProps) => {
+  if (type === 'SPIKE')       return <polygon points="...▲" />;
+  if (type === 'MULTI_BUCKET') return <polygon points="...◆" />;
+  return <circle ... />;  // CATEGORIZATION
+};
+```
 
-### `KpiCard.tsx`
+`parseHanaUtc(str)` — función interna crítica: HANA devuelve timestamps sin indicador de zona (`"2026-05-11 14:35:00"`). `new Date("2026-05-11 14:35:00")` en algunos browsers se interpreta como local time. La función lo normaliza a UTC explícitamente reemplazando el espacio por `T` y añadiendo `Z`.
 
-Tarjeta reutilizable con borde izquierdo de color, valor grande, label y subtítulo opcional.
+### `KpiCard.tsx` y `SeverityBadge.tsx`
 
-### `SeverityBadge.tsx`
-
-- `SeverityBadge` — HIGH (rojo) / MEDIUM (naranja) / LOW (amarillo)
-- `TypeBadge` — SPIKE / MULTI_BUCKET / CATEGORIZATION con colores brand
+Componentes presentacionales puros. Sin lógica. `KpiCard` acepta `color` como token del sistema de diseño. `SeverityBadge` exporta también `TypeBadge` para los tipos de anomalía (SPIKE / MULTI_BUCKET / CATEGORIZATION).
 
 ---
 
-## 8. Capa de datos
+## 8. Capa de datos — lib/
 
-### `lib/hana.ts`
-
-Wrapper minimalista sobre `@sap/hana-client`:
+### `lib/hana.ts` — conexión nueva por query
 
 ```typescript
-async function query<T>(sql: string): Promise<T[]>
-// 1. Crea conexión con credenciales de process.env
-// 2. Ejecuta SQL
-// 3. Normaliza keys a lowercase
-// 4. Desconecta y retorna rows
-```
-
-Configuración de conexión:
-- `encrypt: true`
-- `sslValidateCertificate: false`
-- Host / Port / User / Password desde variables de entorno
-
-### `lib/queries.ts`
-
-Plantillas SQL parametrizadas por ventana temporal:
-
-```typescript
-const sql = {
-  volume(table: string, hours: number): string
-  // GROUP BY SUBSTR(timestamp,0,17), logtype — 1 min resolution
-
-  anomalies(hours: number): string
-  // SELECT todas las columnas FROM ANOMALIES WHERE timestamp >= since
-
-  systemLogs(hours: number): string
-  // SELECT columnas FROM SYSTEM_LOGS WHERE timestamp >= since
-
-  llmLogs(hours: number): string
-  // SELECT columnas FROM LLM_LOGS WHERE timestamp >= since
+export function query<T = Record<string, unknown>>(sql: string): Promise<T[]> {
+  return new Promise((resolve, reject) => {
+    const conn = hana.createConnection();
+    conn.connect(params, (connectErr) => {
+      if (connectErr) { reject(connectErr); return; }
+      conn.exec(sql, (execErr, rows) => {
+        conn.disconnect();   // ← desconecta siempre, éxito o error
+        if (execErr) { reject(execErr); return; }
+        const normalised = rows.map((row) =>
+          Object.fromEntries(
+            Object.entries(row).map(([k, v]) => [k.toLowerCase(), v])
+          )
+        ) as T[];
+        resolve(normalised);
+      });
+    });
+  });
 }
-
-function since(hours: number): string
-// Retorna timestamp UTC formateado: "YYYY-MM-DD HH:MM:SS"
 ```
+
+**Decisión de diseño:** una conexión nueva por query, no pool. **Razón:** Cloud Foundry puede escalar a múltiples instancias; un pool persistente en cada instancia podría saturar los límites de conexiones de HANA Cloud. Las queries son infrecuentes (máximo 1 por ruta cada 55s), por lo que el overhead de conexión (~50ms) es aceptable.
+
+**Configuración de seguridad:**
+- `encrypt: 'true'` — TLS obligatorio
+- `sslValidateCertificate: 'false'` — SAP HANA Cloud usa certificados internos no firmados por CA pública; la validación fallaría
+- `sslCryptoProvider: 'openssl'` — requerido por el driver en Linux (CF)
+
+### `lib/queries.ts` — SQL parametrizado
+
+```typescript
+function since(hours: number): string {
+  return new Date(Date.now() - hours * 3_600_000)
+    .toISOString()
+    .slice(0, 19)
+    .replace('T', ' ');
+  // → "2026-05-11 10:30:00"
+}
+```
+
+**Por qué no prepared statements:** `@sap/hana-client` soporta prepared statements, pero los parámetros aquí son enteros validados (`h` con clamp [1,168]) y nombres de tabla que provienen de una whitelist interna — no de input de usuario. El riesgo de SQL injection es nulo.
 
 ---
 
-## 9. Integración con IA
+## 9. Integración con IA — diseño y decisiones
 
-### Chat (`/api/chat`)
+### Modelo: Gemini 2.5 Flash (`gemini-2.5-flash`)
 
-**Modelo:** Gemini 2.5 Flash (`gemini-2.5-flash-preview-04-17`)
+**Por qué Flash sobre Pro:** El caso de uso es análisis de JSON estructurado y generación de texto en español. Flash tiene latencia ~2–4s vs ~8–15s de Pro, con resultados equivalentes para este dominio. El razonamiento extendido de Pro no aporta valor aquí.
 
-**System prompt resumido:**
-- Experto en seguridad SAP
-- Interpreta anomalías, logs, métricas
-- Sugiere acciones concretas ante incidentes
-- Responde en español
-- Acceso al contexto completo del dashboard
-
-**Estructura de la petición:**
-```typescript
-{
-  messages: { role: 'user' | 'model', text: string }[],
-  context?: string  // JSON de las 3 APIs
-}
-```
-
-### Generación de reportes (`/api/report`)
-
-Gemini genera un `ReportData` estructurado en JSON:
+### Chat — system prompt y multi-turn
 
 ```typescript
-interface ReportData {
-  titulo: string
-  periodo: string
-  fecha_generacion: string
-  nivel_riesgo: 'CRÍTICO' | 'ALTO' | 'MEDIO' | 'BAJO'
-  resumen_ejecutivo: string[]     // Párrafos
-  hallazgos: {
-    titulo: string
-    descripcion: string
-    severidad: string
-    tipo: string
-  }[]
-  estadisticas: {
-    total_anomalias: number
-    high_severity: number
-    medium_severity: number
-    total_logs: number
-    security_events: number
-  }
-  recomendaciones: string[]
-  conclusion: string
-}
+const model = genAI.getGenerativeModel({
+  model: 'gemini-2.5-flash',
+  systemInstruction: SYSTEM_PROMPT,   // experto en seguridad SAP
+});
+
+// Historia limpiada: solo desde el primer mensaje user
+const history = messages.slice(0, -1)
+  .slice(firstUserIdx)
+  .map((m) => ({ role: m.role, parts: [{ text: m.text }] }));
+
+const chat = model.startChat({ history });
+const result = await chat.sendMessage(userText);
 ```
+
+**Por qué se empieza desde el primer user message:** la API de Gemini requiere que la historia comience con un mensaje `role: 'user'`. Si hay mensajes de sistema o de modelo antes del primer user, la API retorna error.
+
+### Reporte — JSON puro vs function calling
+
+Se optó por instruir al modelo a devolver JSON puro en lugar de usar function calling (tool use). **Razón:** function calling requiere definir el schema en la llamada API, lo que duplica la definición ya existente en TypeScript (`ReportData`). El modelo siguió el schema en >95% de las pruebas; el 5% restante (markdown fences añadidas por el modelo) se maneja con limpieza de texto:
+
+```typescript
+const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+const report = JSON.parse(clean);  // falla explícitamente si el JSON es inválido
+```
+
+**Tradeoff aceptado:** `JSON.parse` puede lanzar excepción. El catch del route devuelve `500` con mensaje de error al cliente, que lo muestra en el chat.
 
 ---
 
 ## 10. Generación de reportes PDF
 
-### `lib/generatePdf.ts`
+### `lib/generatePdf.ts` — layout manual A4
 
-Usa jsPDF (A4 portrait) con diseño estructurado en secciones:
+jsPDF construye el PDF como canvas de coordenadas mm (A4: 210×297mm, márgenes 18mm). La función clave es `checkY(needed)`:
 
-```
-1. Header (fondo azul oscuro)
-   ├─ Título "3RPC — Reporte de Seguridad SAP"
-   ├─ Badge nivel de riesgo (color dinámico)
-   └─ Período analizado
-
-2. Meta info
-   └─ Fecha y hora de generación
-
-3. Estadísticas (grid 4×2)
-   └─ 8 KPIs con colores según severidad
-
-4. Resumen ejecutivo
-   └─ Párrafos con texto wrapped automático
-
-5. Hallazgos de seguridad
-   └─ Bloques numerados (título + severidad badge + descripción)
-
-6. Recomendaciones
-   └─ Lista con bullet azul
-
-7. Conclusión
-
-8. Footer en cada página
-   └─ Línea gris + "Generado por 3RPC — 3RPC-SAP-Security — Pág N"
+```typescript
+function checkY(needed: number) {
+  if (y + needed > 275) addPage();
+}
+// Llamada antes de cada bloque para evitar overflow de página
 ```
 
-**Nombre del archivo:** `reporte-seguridad-sap-YYYY-MM-DD.pdf`
+**Carga diferida (lazy import):**
 
-**Saltos de página automáticos:** función `checkY(needed)` verifica espacio restante antes de cada bloque.
+```typescript
+export async function generatePdf(report: ReportData): Promise<void> {
+  const { jsPDF } = await import('jspdf');  // no está en el bundle inicial
+  ...
+  doc.save(`reporte-seguridad-sap-${fecha}.pdf`);
+  // doc.save() dispara descarga directa en el browser
+}
+```
+
+### Estructura del PDF generado
+
+```
+1. Header (fondo #0f172a)      — Título + badge de riesgo (color dinámico por severidad)
+2. Meta info                   — Período + fecha de generación
+3. Estadísticas (grid 4×2)     — 8 KPIs con barra de color lateral por severidad
+4. Resumen ejecutivo           — Texto con word-wrap automático (splitTextToSize)
+5. Hallazgos de seguridad      — Bloques numerados con barra de color por severidad
+6. Recomendaciones             — Lista con bullet azul brand
+7. Conclusión                  — Párrafo de cierre
+8. Footer (todas las páginas)  — "3RPC SAP Security Monitor · Confidencial · Pág. N"
+```
 
 ---
 
@@ -471,11 +547,7 @@ Usa jsPDF (A4 portrait) con diseño estructurado en secciones:
 | `text.primary` | `#e6edf3` | Texto principal |
 | `text.secondary` | `#8b949e` | Labels, subtítulos |
 
-### `globals.css`
-
-- Scrollbar personalizada (oscura, redondeada)
-- Range input con thumb azul brand
-- Tabla con header sticky
+**Por qué dark theme:** el dashboard es consumido principalmente en entornos NOC/SOC (24/7), donde el dark theme reduce la fatiga visual durante turnos nocturnos.
 
 ---
 
@@ -492,6 +564,8 @@ applications:
     command: npm start
 ```
 
+512MB es suficiente para el runtime Next.js + driver HANA. `npm start` ejecuta el servidor de producción pre-compilado (`next start`).
+
 ### `next.config.ts`
 
 ```typescript
@@ -501,28 +575,20 @@ applications:
 }
 ```
 
-- `serverExternalPackages`: excluye el driver HANA del bundle (debe ser nativo Node.js)
-- `turbopack`: bundler de desarrollo más rápido
+`serverExternalPackages` evita que Webpack intente bundlear `@sap/hana-client` — el driver incluye binarios nativos compilados (`.node` files) que no pueden ser bundleados.
 
-### Comandos
+### Comandos de despliegue
 
 ```bash
-# Desarrollo
-npm run dev
-
-# Build + producción
-npm run build
-npm start
-
-# Deploy Cloud Foundry
-cf push
+npm run build    # Compila Next.js para producción
+cf push          # Sube a Cloud Foundry usando manifest.yml
 ```
 
 ---
 
 ## 13. Variables de entorno
 
-Definidas en `.env.local` (desarrollo) o en CF environment (producción).
+Definidas en `.env.local` (desarrollo) o en `cf set-env` (producción).
 
 | Variable | Descripción | Requerida |
 |---|---|---|
@@ -532,15 +598,14 @@ Definidas en `.env.local` (desarrollo) o en CF environment (producción).
 | `HANA_PASS` | Contraseña HANA | Sí |
 | `HANA_SCHEMA` | Schema (ej: `SOC_LOGS`) | Sí |
 | `GEMINI_API_KEY` | API key Google Gemini | Sí (chat + PDF) |
-| `CF_API` | Endpoint Cloud Foundry | Opcional |
-| `CF_USER` / `CF_PASS` | Credenciales CF | Opcional |
-| `CF_ORG` / `CF_SPACE` | Organización y espacio CF | Opcional |
+
+**Seguridad:** todas las variables son leídas en API Routes (server-side). El cliente React nunca tiene acceso a ellas. Next.js solo expone al cliente variables prefijadas con `NEXT_PUBLIC_` — ninguna de las variables aquí tiene ese prefijo.
 
 ---
 
 ## 14. Tipos de datos
 
-Definidos en `types/index.ts`:
+Definidos en `types/index.ts` y compartidos entre API Routes y componentes cliente.
 
 ### `Anomaly`
 
@@ -551,14 +616,14 @@ interface Anomaly {
   bucket_start: string
   anomaly_type: 'SPIKE' | 'MULTI_BUCKET' | 'CATEGORIZATION'
   severity: 'HIGH' | 'MEDIUM' | 'LOW'
-  anomaly_score: number        // Más negativo = más anómalo
+  anomaly_score: number        // Más negativo = más anómalo (IForest score)
   n_requests: number
   n_unique_ips: number
   error_rate: number
   top_ip: string
   reason: string
-  details_json: string         // JSON: top_deviations, feature_snapshot, log_ids
-  attack_category: string
+  details_json: string         // JSON: { top_deviations, feature_snapshot, log_ids }
+  attack_category: string      // DDoS | BruteForce | PromptInjection | ...
 }
 ```
 
@@ -569,8 +634,6 @@ interface SystemLog {
   _id: string
   timestamp: string
   sourceip: string
-  port_service: string
-  event_description: string
   logtype: string              // INFO | WARNING | ERROR | AUDIT | SECURITY | PERF
   macro_region: string
   http_status_code: number
@@ -585,7 +648,7 @@ interface SystemLog {
 interface LlmLog {
   _id: string
   timestamp: string
-  llm_model_id: string         // ej: "gemini-2.5-flash"
+  llm_model_id: string
   llm_total_tokens: number
   llm_cost_usd: number
   llm_response_time_ms: number
@@ -596,34 +659,21 @@ interface LlmLog {
 }
 ```
 
-### `VolumeRow`
+---
 
-```typescript
-interface VolumeRow {
-  minute_str: string           // "2026-05-11 14:35"
-  logtype: string
-  cnt: number
-}
-```
+## 15. Riesgos técnicos y mitigaciones
+
+| # | Riesgo | Probabilidad | Impacto | Mitigación |
+|---|---|---|---|---|
+| 1 | **API key Gemini expuesta** | Baja | Crítico | La key solo existe en variables de entorno server-side. Las API Routes son el único punto de acceso. El cliente nunca recibe ni puede inferir la key. |
+| 2 | **Saturación de conexiones HANA** | Media | Alto | Conexión nueva por query (no pool permanente). HANA Cloud permite ~100 conexiones simultáneas por instancia; con 4 rutas y refresh de 60s, el pico es <10 conexiones/min. |
+| 3 | **Datos desactualizados en ventana de 55s** | Alta | Bajo | Aceptado por diseño. El pipeline Python detecta anomalías cada ~30 min; una ventana de 55s de stale data es irrelevante para el caso de uso de monitoreo. |
+| 4 | **JSON inválido devuelto por Gemini** | Baja | Medio | `JSON.parse` falla explícitamente; el catch devuelve 500 con mensaje descriptivo. El ChatWidget muestra el error al usuario. Pendiente: reintentar la llamada automáticamente. |
+| 5 | **Memoria en browser para PDFs grandes** | Baja | Bajo | jsPDF construye el PDF en memoria. Para >100 hallazgos, el blob puede exceder 10MB. Mitigación: el prompt de Gemini limita hallazgos a los más relevantes; en la práctica los reportes son <500KB. |
+| 6 | **HANA SSL sin validación de certificado** | Media | Medio | `sslValidateCertificate: false` expone a MITM en red no controlada. En CF la conexión sale por red privada SAP BTP — riesgo real bajo. Para producción, configurar `sslTrustStore` con el certificado de HANA. |
+| 7 | **Timeout de queries HANA lentas** | Baja | Medio | Queries con `h=168` sobre millones de filas pueden tardar >30s. El driver no tiene timeout configurable en este wrapper. Mitigación: añadir `LIMIT` en queries grandes o índice sobre `timestamp` en HANA. |
+| 8 | **Build fallido por binarios nativos en CF** | Baja | Alto | `@sap/hana-client` descarga binarios según plataforma en `npm install`. CF usa Linux x64; el buildpack instala dependencias en el contenedor. Si el binario no está disponible para la versión de Node.js del buildpack, el deploy falla. Monitorear compatibilidad al actualizar Node.js. |
 
 ---
 
-## 15. Dependencias
-
-| Paquete | Versión | Uso |
-|---|---|---|
-| `next` | 15.3.0 | Framework full-stack |
-| `react` / `react-dom` | 18.3.1 | UI library |
-| `typescript` | 5 | Type safety |
-| `tailwindcss` | 3.4.4 | Utility-first CSS |
-| `recharts` | 2.12.7 | Gráficos composables |
-| `swr` | 2.2.5 | Data fetching + cache |
-| `@google/generative-ai` | 0.24.1 | Gemini API client |
-| `@sap/hana-client` | 2.21.31 | Driver SAP HANA Cloud |
-| `jspdf` | 4.2.1 | Generación de PDF |
-| `lucide-react` | 0.400.0 | Iconografía SVG |
-| `clsx` | 2.1.1 | Composición de classnames |
-
----
-
-*Generado a partir del código fuente del proyecto.*
+*Arquitectura documentada a partir del código fuente — versión 2.0.*
