@@ -17,18 +17,22 @@ const SUGGESTIONS = [
   'Resume el estado de seguridad',
 ];
 
-async function fetchDashboardContext(hours: number): Promise<string> {
+const SEC_CATEGORY = 'Escalada de Eventos de Seguridad';
+
+async function fetchDashboardContext(hours: number, secOnly: boolean): Promise<string> {
   const [anomRes, sysRes, llmRes] = await Promise.allSettled([
     fetch(`/api/anomalias?h=${hours}`).then((r) => r.json()),
     fetch(`/api/system-logs?h=${hours}&limit=10`).then((r) => r.json()),
     fetch(`/api/llm-logs?h=${hours}&limit=10`).then((r) => r.json()),
   ]);
 
-  const parts: string[] = [`=== DATOS DEL DASHBOARD 3RPC (últimas ${hours}h) ===\n`];
+  const secLabel = secOnly ? ' · solo Escalada de Eventos de Seguridad' : '';
+  const parts: string[] = [`=== DATOS DEL DASHBOARD 3RPC (últimas ${hours}h${secLabel}) ===\n`];
 
   if (anomRes.status === 'fulfilled' && anomRes.value?.data?.length) {
-    const anomalies = anomRes.value.data;
-    parts.push(`ANOMALÍAS DETECTADAS: ${anomalies.length} total`);
+    let anomalies: Record<string, unknown>[] = anomRes.value.data;
+    if (secOnly) anomalies = anomalies.filter((a) => a.attack_category === SEC_CATEGORY);
+    parts.push(`ANOMALÍAS DETECTADAS: ${anomalies.length} total${secOnly ? ` (filtrado: ${SEC_CATEGORY})` : ''}`);
     anomalies.slice(0, 15).forEach((a: Record<string, unknown>, i: number) => {
       parts.push(
         `${i + 1}. [${a.severity}] Tipo: ${a.anomaly_type} | Score: ${Number(a.anomaly_score).toFixed(4)} | ` +
@@ -106,7 +110,8 @@ export function ChatWidget() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
   const searchParams = useSearchParams();
-  const hours = Number(searchParams.get('h') ?? 24);
+  const hours   = Number(searchParams.get('h') ?? 24);
+  const secOnly = searchParams.get('secOnly') === '1';
 
   // Auto-load context and greet when chat opens
   const initChat = useCallback(async () => {
@@ -115,7 +120,7 @@ export function ChatWidget() {
 
     let ctx = '';
     try {
-      ctx = await fetchDashboardContext(hours);
+      ctx = await fetchDashboardContext(hours, secOnly);
       setContext(ctx);
     } catch {
       ctx = '';
@@ -135,7 +140,7 @@ export function ChatWidget() {
     } catch {
       setMessages([{ role: 'model', text: '¡Hola! Datos cargados. ¿Qué quieres saber sobre las anomalías o logs?' }]);
     }
-  }, [hours]);
+  }, [hours, secOnly]);
 
   useEffect(() => {
     if (open && messages.length === 0) {
@@ -252,7 +257,11 @@ export function ChatWidget() {
             <div className="flex-1">
               <p className="text-sm font-semibold text-text-primary">Asistente SAP Security</p>
               <p className="text-[10px] text-text-muted">
-                {ctxLoading ? 'Cargando datos…' : context ? `Datos cargados · últimas ${hours}h` : 'Powered by Gemini'}
+                {ctxLoading
+                  ? 'Cargando datos…'
+                  : context
+                    ? `Datos cargados · últimas ${hours}h${secOnly ? ' · 🔒 Security Escalation' : ''}`
+                    : 'Powered by Gemini'}
               </p>
             </div>
             <button

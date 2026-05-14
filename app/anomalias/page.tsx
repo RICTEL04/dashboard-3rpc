@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -189,13 +189,24 @@ function AnomalyCard({ a, isSelected }: { a: Anomaly; isSelected?: boolean }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AnomaliesPage() {
-  const sp    = useSearchParams();
-  const hours = Math.max(Number(sp.get('h') ?? 24), 1);
+  const sp     = useSearchParams();
+  const router = useRouter();
+  const hours  = Math.max(Number(sp.get('h') ?? 24), 1);
+  const secOnly = sp.get('secOnly') === '1';
 
   const [gran, setGran]             = useState<string>('10min');
   const [sevFilter, setSevFilter]   = useState<Severity[]>(['HIGH', 'MEDIUM', 'LOW']);
   const [typeFilter, setTypeFilter] = useState<AnomalyType[]>(['SPIKE', 'MULTI_BUCKET', 'CATEGORIZATION']);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const SEC_CATEGORY = 'Escalada de Eventos de Seguridad';
+
+  const toggleSecOnly = useCallback(() => {
+    const params = new URLSearchParams(sp.toString());
+    if (secOnly) params.delete('secOnly');
+    else params.set('secOnly', '1');
+    router.replace(`?${params.toString()}`);
+  }, [secOnly, sp, router]);
 
   const handleAnomalyClick = useCallback((anomalyId: string) => {
     setSelectedId(anomalyId);
@@ -219,7 +230,9 @@ export default function AnomaliesPage() {
     setTypeFilter((p) => p.includes(t) ? p.filter((x) => x !== t) : [...p, t]), []);
 
   const filtered = anomalies.filter(
-    (a) => sevFilter.includes(a.severity) && typeFilter.includes(a.anomaly_type as AnomalyType)
+    (a) => sevFilter.includes(a.severity)
+        && typeFilter.includes(a.anomaly_type as AnomalyType)
+        && (!secOnly || a.attack_category === SEC_CATEGORY)
   );
 
   const high   = anomalies.filter((a) => a.severity === 'HIGH').length;
@@ -322,7 +335,7 @@ export default function AnomaliesPage() {
             </div>
             <VolumeChart
               rows={volAll} gran={gran} color="#636EFA" height={280}
-              anomalies={anomalies} onAnomalyClick={handleAnomalyClick}
+              anomalies={filtered} onAnomalyClick={handleAnomalyClick}
             />
           </div>
 
@@ -404,6 +417,18 @@ export default function AnomaliesPage() {
                     {t}
                   </button>
                 ))}
+                <div className="w-px bg-surface-border self-stretch mx-1" />
+                <button
+                  onClick={toggleSecOnly}
+                  className="px-2.5 py-1 rounded text-xs font-semibold border transition-colors"
+                  style={{
+                    color:       secOnly ? '#EF553B' : '#484f58',
+                    background:  secOnly ? '#EF553B15' : 'transparent',
+                    borderColor: secOnly ? '#EF553B40' : '#30363d',
+                  }}
+                >
+                  🔒 Solo Security Escalation
+                </button>
               </div>
             </div>
 
