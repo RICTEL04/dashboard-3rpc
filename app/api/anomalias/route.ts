@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/hana';
 import { sql } from '@/lib/queries';
+import { cached } from '@/lib/cache';
 import type { Anomaly } from '@/types';
 
 export async function GET(req: NextRequest) {
   const h = Math.min(Math.max(Number(req.nextUrl.searchParams.get('h') ?? 24), 1), 168);
 
   try {
-    let data = await query<Anomaly>(sql.anomalies(h));
+    let data = await cached(`anomalies-${h}`, () => query<Anomaly>(sql.anomalies(h)));
 
     // Fallback: if attack_category column doesn't exist in the schema yet
     if (data.length > 0 && !('attack_category' in data[0])) {

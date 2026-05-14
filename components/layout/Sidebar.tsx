@@ -26,6 +26,13 @@ export function Sidebar() {
   // Keep local slider in sync when URL changes (e.g. preset buttons, nav)
   useEffect(() => { setSliderVal(hours); }, [hours]);
 
+  // Pre-warm the server cache for the selected time window.
+  // One request triggers all 5 HANA queries in parallel; every SWR hook
+  // on any dashboard section then gets an instant cache hit.
+  useEffect(() => {
+    fetch(`/api/prefetch?h=${hours}`).catch(() => {/* silent — individual routes will retry */});
+  }, [hours]);
+
   const pushHours = useCallback((h: number) => {
     const p = new URLSearchParams(searchParams.toString());
     p.set('h', String(h));

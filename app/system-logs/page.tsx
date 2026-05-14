@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import {
@@ -19,55 +19,39 @@ const STATUS_COLOR = (code: number) =>
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-function top<T>(arr: T[], key: keyof T, n = 10) {
-  const map = new Map<string, number>();
-  for (const item of arr) {
-    const k = String(item[key] ?? '');
-    map.set(k, (map.get(k) ?? 0) + 1);
-  }
-  return [...map.entries()]
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, n)
-    .map(([name, value]) => ({ name, value }));
-}
-
-function counts<T>(arr: T[], key: keyof T) {
-  const map = new Map<string, number>();
-  for (const item of arr) {
-    const k = String(item[key] ?? '');
-    map.set(k, (map.get(k) ?? 0) + 1);
-  }
-  return [...map.entries()].map(([name, value]) => ({ name, value }));
-}
-
 export default function SystemLogsPage() {
   const sp    = useSearchParams();
   const hours = Math.max(Number(sp.get('h') ?? 24), 1);
   const [gran, setGran] = useState('10min');
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 100;
+
+  // When h changes, reset to page 0
+  const [lastH, setLastH] = useState(hours);
+  if (lastH !== hours) { setLastH(hours); setPage(0); }
 
   const { data: logsRes, isLoading } =
-    useSWR(`/api/system-logs?h=${hours}`, fetcher, { refreshInterval: 60_000 });
+    useSWR(`/api/system-logs?h=${hours}&page=${page}`, fetcher, { refreshInterval: 60_000 });
   const { data: volRes } =
     useSWR(`/api/volume?table=SYSTEM_LOGS&h=${hours}`, fetcher, { refreshInterval: 60_000 });
 
-  const logs: SystemLog[] = logsRes?.data ?? [];
-  const vol:  VolumeRow[] = volRes?.data  ?? [];
+  // Stats come pre-computed from HANA — no client-side aggregation needed
+  const stats      = logsRes?.stats ?? {};
+  const rows: SystemLog[] = logsRes?.data ?? [];
+  const vol: VolumeRow[]  = volRes?.data  ?? [];
 
-  const uniqIps   = useMemo(() => new Set(logs.map((l) => l.sourceip)).size, [logs]);
-  const secEvents = useMemo(() => logs.filter((l) => l.is_security_event).length, [logs]);
-  const topIps    = useMemo(() => top(logs, 'sourceip'), [logs]);
-  const statusDist= useMemo(() => counts(logs, 'http_status_code')
-    .map((d) => ({ ...d, color: STATUS_COLOR(Number(d.name)) }))
-    .sort((a, b) => Number(a.name) - Number(b.name)), [logs]);
-  const envDist   = useMemo(() => counts(logs, 'sap_app_env'), [logs]);
-  const logtypeDist = useMemo(() => counts(logs, 'logtype'), [logs]);
+  const total       = stats.total          ?? 0;
+  const uniqIps     = stats.unique_ips     ?? 0;
+  const secEvents   = stats.security_events ?? 0;
+  const logtypeDist = stats.logtype_dist   ?? [];
+  const statusDist  = (stats.http_status_dist ?? []).map(
+    (d: { name: string; value: number }) => ({ ...d, color: STATUS_COLOR(Number(d.name)) })
+  );
+  const topIps      = stats.top_ips   ?? [];
+  const envDist     = stats.env_dist  ?? [];
 
-  const pageLogs  = logs.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const totalPages = Math.ceil(logs.length / PAGE_SIZE);
+  const totalPages  = logsRes?.total_pages ?? 1;
 
-  if (isLoading) {
+  if (isLoading && page === 0) {
     return (
       <div className="flex items-center justify-center h-64 gap-3 text-text-secondary">
         <span className="w-5 h-5 rounded-full border-2 border-brand-blue border-t-transparent animate-spin" />
@@ -93,10 +77,10 @@ export default function SystemLogsPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard label="Total registros"      value={logs.length.toLocaleString()}   accent="#636EFA" />
-        <KpiCard label="IPs únicas"           value={uniqIps.toLocaleString()}       accent="#19D3F3" />
-        <KpiCard label="Eventos de seguridad" value={secEvents.toLocaleString()}
-                 sub={logs.length ? `${(secEvents / logs.length * 100).toFixed(1)}% del total` : undefined}
+        <KpiCard label="Total registros"      value={Number(total).toLocaleString()}    accent="#636EFA" />
+        <KpiCard label="IPs únicas"           value={Number(uniqIps).toLocaleString()} accent="#19D3F3" />
+        <KpiCard label="Eventos de seguridad" value={Number(secEvents).toLocaleString()}
+                 sub={total ? `${(Number(secEvents) / Number(total) * 100).toFixed(1)}% del total` : undefined}
                  accent="#EF553B" />
         <KpiCard label="Tipo de logs"         value={logtypeDist.length} accent="#AB63FA" />
       </div>
@@ -136,7 +120,7 @@ export default function SystemLogsPage() {
               <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {logtypeDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                {logtypeDist.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -154,7 +138,7 @@ export default function SystemLogsPage() {
               <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {statusDist.map((d, i) => <Cell key={i} fill={d.color} />)}
+                {statusDist.map((d: { color: string }, i: number) => <Cell key={i} fill={d.color} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -183,16 +167,9 @@ export default function SystemLogsPage() {
           </h2>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
-              <Pie
-                data={envDist}
-                dataKey="value"
-                nameKey="name"
-                cx="50%" cy="50%"
-                innerRadius="45%"
-                outerRadius="70%"
-                paddingAngle={2}
-              >
-                {envDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              <Pie data={envDist} dataKey="value" nameKey="name"
+                   cx="50%" cy="50%" innerRadius="45%" outerRadius="70%" paddingAngle={2}>
+                {envDist.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
               <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
@@ -205,7 +182,7 @@ export default function SystemLogsPage() {
       <div className="bg-surface-raised border border-surface-border rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">
-            Datos crudos — {logs.length.toLocaleString()} registros
+            Datos crudos — {Number(total).toLocaleString()} registros
           </h2>
           {totalPages > 1 && (
             <div className="flex items-center gap-2 text-xs text-text-secondary">
@@ -233,7 +210,7 @@ export default function SystemLogsPage() {
               </tr>
             </thead>
             <tbody>
-              {pageLogs.map((l) => (
+              {rows.map((l) => (
                 <tr key={l._id}>
                   <td className="font-mono text-xs">{l.timestamp?.slice(0, 19)}</td>
                   <td className="font-mono">{l.sourceip}</td>

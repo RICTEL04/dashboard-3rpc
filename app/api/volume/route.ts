@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/hana';
 import { sql } from '@/lib/queries';
+import { cached } from '@/lib/cache';
 import type { VolumeRow } from '@/types';
 
 const ALLOWED = new Set(['SYSTEM_LOGS', 'LLM_LOGS']);
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const data = await query<VolumeRow>(sql.volume(table, h));
+    const data = await cached(`volume-${table}-${h}`, () => query<VolumeRow>(sql.volume(table, h)));
     return NextResponse.json({ data }, {
       headers: { 'Cache-Control': 'public, max-age=55, stale-while-revalidate=5' },
     });

@@ -9,7 +9,7 @@ import {
 } from 'recharts';
 import { BarChart3 } from 'lucide-react';
 import { KpiCard } from '@/components/ui/KpiCard';
-import type { SystemLog, LlmLog, VolumeRow } from '@/types';
+import type { VolumeRow } from '@/types';
 
 const COLORS  = ['#636EFA','#00CC96','#FFA15A','#AB63FA','#19D3F3','#FECB52'];
 const GRANS   = ['5min', '10min', '30min', '1h'] as const;
@@ -19,20 +19,10 @@ const GRAN_MS: Record<string, number> = {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-function counts<T>(arr: T[], key: keyof T) {
-  const map = new Map<string, number>();
-  for (const item of arr) {
-    const k = String(item[key] ?? '(vacío)');
-    map.set(k, (map.get(k) ?? 0) + 1);
-  }
-  return [...map.entries()].map(([name, value]) => ({ name, value }));
-}
-
 function buildCombinedVolume(sys: VolumeRow[], llm: VolumeRow[], gran: string) {
   const ms = GRAN_MS[gran] ?? GRAN_MS['10min'];
   const sysB = new Map<number, number>();
   const llmB = new Map<number, number>();
-
   for (const r of sys) {
     const b = Math.floor(new Date(r.minute_str + ':00Z').getTime() / ms) * ms;
     sysB.set(b, (sysB.get(b) ?? 0) + Number(r.cnt));
@@ -41,7 +31,6 @@ function buildCombinedVolume(sys: VolumeRow[], llm: VolumeRow[], gran: string) {
     const b = Math.floor(new Date(r.minute_str + ':00Z').getTime() / ms) * ms;
     llmB.set(b, (llmB.get(b) ?? 0) + Number(r.cnt));
   }
-
   const all = new Set([...sysB.keys(), ...llmB.keys()]);
   return [...all].sort().map((t) => ({
     time:    t,
@@ -67,39 +56,48 @@ export default function ResumenPage() {
   const hours = Math.max(Number(sp.get('h') ?? 24), 1);
   const [gran, setGran] = useState('10min');
 
+  // Use page=0 to get stats + first page. Only stats matter here (no raw rows needed).
   const { data: sysRes, isLoading: loadSys } =
-    useSWR(`/api/system-logs?h=${hours}`, fetcher, { refreshInterval: 60_000 });
+    useSWR(`/api/system-logs?h=${hours}&page=0`, fetcher, { refreshInterval: 60_000 });
   const { data: llmRes, isLoading: loadLlm } =
-    useSWR(`/api/llm-logs?h=${hours}`,    fetcher, { refreshInterval: 60_000 });
+    useSWR(`/api/llm-logs?h=${hours}&page=0`,    fetcher, { refreshInterval: 60_000 });
   const { data: volSysRes } =
     useSWR(`/api/volume?table=SYSTEM_LOGS&h=${hours}`, fetcher, { refreshInterval: 60_000 });
   const { data: volLlmRes } =
     useSWR(`/api/volume?table=LLM_LOGS&h=${hours}`,    fetcher, { refreshInterval: 60_000 });
 
-  const sysList: SystemLog[] = sysRes?.data ?? [];
-  const llmList: LlmLog[]   = llmRes?.data  ?? [];
-  const volSys:  VolumeRow[] = volSysRes?.data ?? [];
-  const volLlm:  VolumeRow[] = volLlmRes?.data ?? [];
+  const sysStats = sysRes?.stats ?? {};
+  const llmStats = llmRes?.stats ?? {};
+  const volSys: VolumeRow[] = volSysRes?.data ?? [];
+  const volLlm: VolumeRow[] = volLlmRes?.data ?? [];
 
-  const secEvents  = useMemo(() => sysList.filter((l) => l.is_security_event).length, [sysList]);
-  const totalCost  = useMemo(() => llmList.reduce((s, l) => s + (Number(l.llm_cost_usd) || 0), 0), [llmList]);
-  const totalTok   = useMemo(() => llmList.reduce((s, l) => s + (Number(l.llm_total_tokens) || 0), 0), [llmList]);
+  // KPI values directly from pre-aggregated stats
+  const sysTotal    = Number(sysStats.total           ?? 0);
+  const llmTotal    = Number(llmStats.total           ?? 0);
+  const secEvents   = Number(sysStats.security_events ?? 0);
+  const totalCost   = Number(llmStats.total_cost      ?? 0);
+  const totalTok    = Number(llmStats.total_tokens    ?? 0);
 
-  const sysTypeDist = useMemo(() => counts(sysList, 'logtype'), [sysList]);
-  const llmTypeDist = useMemo(() => counts(llmList, 'logtype'), [llmList]);
-  const secPie      = useMemo(() => [
-    { name: 'Seguridad', value: secEvents,                      fill: '#EF553B' },
-    { name: 'Normal',    value: sysList.length - secEvents,     fill: '#00CC96' },
-  ], [sysList, secEvents]);
-  const topRegions  = useMemo(() => {
+  // Distribution charts from stats
+  const sysTypeDist = sysStats.logtype_dist ?? [];
+  const llmTypeDist = llmStats.model_dist   ?? [];
+
+  // Combined top 10 regions: merge sys + llm region distributions
+  const topRegions = useMemo(() => {
+    const sysReg: { name: string; value: number }[] = sysStats.region_dist ?? [];
+    const llmReg: { name: string; value: number }[] = llmStats.region_dist ?? [];
     const map = new Map<string, number>();
-    for (const l of [...sysList, ...llmList]) {
-      const k = l.macro_region;
-      if (k) map.set(k, (map.get(k) ?? 0) + 1);
+    for (const r of [...sysReg, ...llmReg]) {
+      if (r.name) map.set(r.name, (map.get(r.name) ?? 0) + Number(r.value));
     }
     return [...map.entries()].sort(([, a], [, b]) => b - a).slice(0, 10)
       .map(([name, value]) => ({ name, value }));
-  }, [sysList, llmList]);
+  }, [sysStats.region_dist, llmStats.region_dist]);
+
+  const secPie = useMemo(() => [
+    { name: 'Seguridad', value: secEvents,              fill: '#EF553B' },
+    { name: 'Normal',    value: sysTotal - secEvents,   fill: '#00CC96' },
+  ], [sysTotal, secEvents]);
 
   const combinedVol = useMemo(() => buildCombinedVolume(volSys, volLlm, gran), [volSys, volLlm, gran]);
 
@@ -131,13 +129,13 @@ export default function ResumenPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <KpiCard label="Logs de Sistema"       value={sysList.length.toLocaleString()}  accent="#636EFA" />
-        <KpiCard label="Logs LLM"              value={llmList.length.toLocaleString()}  accent="#00CC96" />
+        <KpiCard label="Logs de Sistema"       value={sysTotal.toLocaleString()}    accent="#636EFA" />
+        <KpiCard label="Logs LLM"              value={llmTotal.toLocaleString()}    accent="#00CC96" />
         <KpiCard label="Eventos de Seguridad"  value={secEvents.toLocaleString()}
-                 sub={sysList.length ? `${(secEvents / sysList.length * 100).toFixed(1)}% del total` : undefined}
+                 sub={sysTotal ? `${(secEvents / sysTotal * 100).toFixed(1)}% del total` : undefined}
                  accent="#EF553B" />
-        <KpiCard label="Costo LLM Total"       value={`$${totalCost.toFixed(4)}`}       accent="#FFA15A" />
-        <KpiCard label="Tokens consumidos"     value={totalTok.toLocaleString()}        accent="#AB63FA" />
+        <KpiCard label="Costo LLM Total"       value={`$${totalCost.toFixed(4)}`}  accent="#FFA15A" />
+        <KpiCard label="Tokens consumidos"     value={totalTok.toLocaleString()}   accent="#AB63FA" />
       </div>
 
       {/* Combined volume timeline */}
@@ -157,7 +155,6 @@ export default function ResumenPage() {
             ))}
           </div>
         </div>
-
         <ResponsiveContainer width="100%" height={280}>
           <AreaChart data={combinedVol} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
@@ -174,8 +171,8 @@ export default function ResumenPage() {
             <Tooltip contentStyle={CHART_STYLE} labelFormatter={(t) => fmtLabel(t as number)} />
             <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
             <Area type="monotone" dataKey="Total"   stroke="#636EFA" strokeWidth={1.5} fill="url(#gradTotal)" dot={false} />
-            <Area type="monotone" dataKey="Sistema" stroke="#EF553B" strokeWidth={1.5} fill="none"           dot={false} />
-            <Area type="monotone" dataKey="LLM"     stroke="#00CC96" strokeWidth={1.5} fill="none"           dot={false} />
+            <Area type="monotone" dataKey="Sistema" stroke="#EF553B" strokeWidth={1.5} fill="none"            dot={false} />
+            <Area type="monotone" dataKey="LLM"     stroke="#00CC96" strokeWidth={1.5} fill="none"            dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -195,22 +192,22 @@ export default function ResumenPage() {
               <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={CHART_STYLE} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {sysTypeDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                {sysTypeDist.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* LLM logtype donut */}
+        {/* LLM model donut */}
         <div className="bg-surface-raised border border-surface-border rounded-xl p-4">
           <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">
-            Tipo de log — LLM
+            Distribución de modelos — LLM
           </h2>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={llmTypeDist} dataKey="value" nameKey="name"
                    cx="50%" cy="50%" innerRadius="40%" outerRadius="65%" paddingAngle={2}>
-                {llmTypeDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                {llmTypeDist.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
               <Tooltip contentStyle={CHART_STYLE} />
               <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
