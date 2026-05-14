@@ -1,7 +1,7 @@
 # 3RPC Dashboard — Arquitectura Técnica
 
-**Versión:** 2.0  
-**Fecha:** 2026-05-12  
+**Versión:** 2.1  
+**Fecha:** 2026-05-13  
 **Stack:** Next.js 15 · TypeScript · SAP HANA Cloud · Gemini 2.5 Flash
 
 ---
@@ -60,9 +60,11 @@ dashboard-next/
 │   ├── resumen/page.tsx          # Vista consolidada
 │   └── api/
 │       ├── anomalias/route.ts    # GET anomalías desde HANA
-│       ├── system-logs/route.ts  # GET system logs
-│       ├── llm-logs/route.ts     # GET LLM logs
+│       ├── system-logs/route.ts  # GET stats + filas paginadas (ROW_NUMBER)
+│       ├── llm-logs/route.ts     # GET stats + filas paginadas (ROW_NUMBER)
 │       ├── volume/route.ts       # GET volumen agregado por minuto
+│       ├── prefetch/route.ts     # GET prefetch de anomalías + volumen (warm cache)
+│       ├── debug-stats/route.ts  # GET diagnóstico — prueba cada query individualmente
 │       ├── chat/route.ts         # POST chat con Gemini
 │       └── report/route.ts       # POST generación de reporte estructurado
 │
@@ -77,6 +79,7 @@ dashboard-next/
 ├── lib/
 │   ├── hana.ts                   # Wrapper conexión SAP HANA Cloud
 │   ├── queries.ts                # SQL parametrizado por ventana temporal
+│   ├── cache.ts                  # Cache servidor + request coalescing (TTL 55s)
 │   └── generatePdf.ts            # Generador PDF (jsPDF, A4 portrait)
 │
 ├── types/index.ts                # Interfaces TypeScript centralizadas
@@ -171,10 +174,11 @@ ANOMALIES:    anomaly_id, detected_at, bucket_start, anomaly_type, severity,
 ### Flujo de transformación
 
 ```
-1. SAP HANA Cloud
-   └─ SQL parametrizado (lib/queries.ts)
-       WHERE timestamp >= NOW() - Nh
-       ORDER BY timestamp DESC
+1. SAP HANA Cloud (motor columnar)
+   └─ Queries ATÓMICAS (lib/queries.ts) — una por KPI, una por distribución
+       COUNT(*), SUM(), AVG(CAST(... AS DOUBLE))   ← agregación en HANA
+       GROUP BY ... ORDER BY ...                   ← solo top-N al cliente
+       ROW_NUMBER() OVER (ORDER BY timestamp DESC) ← paginación server-side
            │
            ▼
 2. lib/hana.ts — query()
@@ -182,20 +186,31 @@ ANOMALIES:    anomaly_id, detected_at, bucket_start, anomaly_type, severity,
       (HANA devuelve columnas en el casing de definición)
            │
            ▼
-3. API Route — NextResponse.json()
-   └─ Cache-Control: max-age=55, stale-while-revalidate=5
+3. lib/cache.ts — cached() / coalesce()
+   └─ cached(): TTL 55s + request coalescing (para KPIs/distribuciones)
+   └─ coalesce(): solo deduplicación, sin almacenamiento (para filas paginadas)
+   └─ Si la query falla → sc() captura error, devuelve [] sin romper la ruta
+           │
+           ▼
+4. API Route — NextResponse.json()
+   └─ { stats: { total, kpi2, ..., dist1: [...], dist2: [...] },
+         data: [...100 filas], page, total_pages }
+   └─ Cache-Control: public, max-age=55, stale-while-revalidate=5
    └─ Parámetro h validado: clamp [1, 168]
            │
            ▼
-4. SWR (cliente) — refreshInterval: 60s
-   └─ React state → Recharts / tablas
+5. SWR (cliente) — refreshInterval: 60s
+   └─ KPIs y charts leen de res.stats (pre-agregado en servidor)
+   └─ Tabla paginada lee de res.data (100 filas)
            │
            ▼
-5. VolumeChart.tsx — bucketData()
+6. VolumeChart.tsx — bucketData()
    └─ Agrega filas a granularidad elegida (1min / 5min / 10min / 30min / 1h)
    └─ parseHanaUtc(): parsea timestamps como UTC para evitar
       desplazamiento de zona horaria en Date()
 ```
+
+**Decisión de diseño clave:** toda la agregación (COUNT, SUM, AVG, GROUP BY) ocurre en HANA, no en JavaScript. Esto reduce los datos transferidos de ~50 MB (todas las filas) a ~12 KB (resultados agregados + 100 filas paginadas), eliminando los crashes OOM en Cloud Foundry.
 
 ### Transformación de volumen (queries.ts)
 
@@ -329,6 +344,50 @@ return NextResponse.json({ data, count: data.length }, {
 
 **Por qué `max-age=55` y no 60:** El cliente revalida cada 60s. Con 55s de cache, hay una ventana de 5s de `stale-while-revalidate` en la que se sirve el dato viejo mientras se refresca en background. Evita que el 60s del cliente y el TTL del servidor expiren en el mismo instante, lo que causaría latencias pico.
 
+### Patrón de queries resilientes (`system-logs`, `llm-logs`)
+
+Las rutas de logs ejecutan múltiples queries atómicas en `Promise.all`. Cada una está envuelta en los helpers `sc()` y `val()`:
+
+```typescript
+// sc() — safe-cached: captura error por query, nunca rompe la ruta completa
+async function sc(key: string, fetcher: () => Promise<Row[]>): Promise<Row[]> {
+  try { return await cached(key, fetcher); }
+  catch (err) { console.error(`[sys-logs] ${key}:`, err); return []; }
+}
+
+// val() — extrae el escalar de una query de agregación (maneja upper/lowercase HANA)
+function val(rows: Row[]): number {
+  if (!rows.length) return 0;
+  const r = rows[0];
+  return Number(r.v ?? r.V ?? 0);
+}
+
+// Uso: cada KPI es una query independiente → si una falla, el resto siguen
+const [totalRows, uniqueIpsRows, secEventsRows, ...] = await Promise.all([
+  sc(`sys-total-${h}`,   () => query(sql.systemLogsTotal(h))),
+  sc(`sys-uniq-${h}`,    () => query(sql.systemLogsUniqueIps(h))),
+  sc(`sys-sec-${h}`,     () => query(sql.systemLogsSecEvents(h))),
+  ...
+]);
+```
+
+**Por qué queries atómicas (una por KPI):** una query multi-agregada falla completa si cualquier expresión lanza error (e.g., AVG sobre tipo incorrecto, BOOLEAN vs TINYINT). Con queries atómicas, si una falla solo ese KPI muestra 0; el resto siguen funcionando.
+
+### Paginación con `ROW_NUMBER()`
+
+`LIMIT n OFFSET m` no está soportado de forma fiable en todas las configuraciones de HANA. Se usa `ROW_NUMBER()`:
+
+```sql
+SELECT * FROM (
+  SELECT ..., ROW_NUMBER() OVER (ORDER BY "timestamp" DESC) AS "_rn"
+  FROM "${S}"."SYSTEM_LOGS"
+  WHERE "timestamp" >= '...'
+)
+WHERE "_rn" > 0 AND "_rn" <= 100   -- página 0, 100 filas
+```
+
+El cliente envía `?page=N`; el servidor calcula `offset = page * 100`.
+
 ### Fallback de compatibilidad de schema
 
 La columna `attack_category` se añadió tardíamente al schema de HANA. Las rutas manejan schemas viejos:
@@ -349,9 +408,11 @@ const data = (await query<Anomaly>(fallbackSql)).map((r) => ({
 | Ruta | Método | Params | Descripción |
 |---|---|---|---|
 | `/api/anomalias` | GET | `h` (1–168, default 24) | Anomalías de HANA con fallback de schema |
-| `/api/system-logs` | GET | `h` | System logs SAP |
-| `/api/llm-logs` | GET | `h` | LLM logs |
+| `/api/system-logs` | GET | `h`, `page` (default 0) | Stats + 100 filas paginadas de SYSTEM_LOGS |
+| `/api/llm-logs` | GET | `h`, `page` (default 0) | Stats + 100 filas paginadas de LLM_LOGS |
 | `/api/volume` | GET | `h`, `table` | Volumen agrupado por minuto por logtype |
+| `/api/prefetch` | GET | `h` | Precalienta cache de anomalías + volumen al cambiar ventana temporal |
+| `/api/debug-stats` | GET | `h` | Prueba cada query individualmente; reporta ok/error + muestra de datos |
 | `/api/chat` | POST | `{messages, context}` | Chat multi-turn con Gemini 2.5 Flash |
 | `/api/report` | POST | `{context, hours}` | Genera `ReportData` JSON via Gemini |
 
@@ -435,6 +496,22 @@ export function query<T = Record<string, unknown>>(sql: string): Promise<T[]> {
 - `sslValidateCertificate: 'false'` — SAP HANA Cloud usa certificados internos no firmados por CA pública; la validación fallaría
 - `sslCryptoProvider: 'openssl'` — requerido por el driver en Linux (CF)
 
+### `lib/cache.ts` — cache servidor con coalescing
+
+```typescript
+const TTL_MS = 55_000;
+
+// cached(): TTL + coalescing — para queries de agregación (KPIs, distribuciones)
+// Si dos requests llegan mientras la query está en vuelo, comparten el resultado.
+export async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T>
+
+// coalesce(): solo coalescing, sin almacenamiento — para filas paginadas
+// Los datos de paginación no se guardan en heap entre requests (previene OOM).
+export async function coalesce<T>(key: string, fetcher: () => Promise<T>): Promise<T>
+```
+
+**Por qué dos variantes:** los resultados de agregación (12 KB) se pueden guardar 55s sin riesgo. Las filas paginadas (~100 filas × ~20 columnas) son más grandes; almacenarlas para cada combinación de `h` y `page` podría acumular cientos de MB en el heap de Node.js en CF.
+
 ### `lib/queries.ts` — SQL parametrizado
 
 ```typescript
@@ -445,6 +522,25 @@ function since(hours: number): string {
     .replace('T', ' ');
   // → "2026-05-11 10:30:00"
 }
+```
+
+Las queries de stats retornan siempre una columna `v` (escalar) para que `val()` pueda extraerla uniformemente:
+
+```typescript
+systemLogsTotal: (hours) => `SELECT COUNT(*) AS v FROM ... WHERE "timestamp" >= '...'`,
+systemLogsSecEvents: (hours) => `
+  SELECT COUNT(*) AS v FROM "${S}"."SYSTEM_LOGS"
+  WHERE "timestamp" >= '...'
+    AND "is_security_event" IS NOT NULL
+    AND CAST("is_security_event" AS TINYINT) = 1
+  -- CAST a TINYINT: la columna puede ser BOOLEAN o TINYINT según la versión de HANA.
+  -- Comparar BOOLEAN con <> 0 falla; CAST a TINYINT funciona para ambos tipos.
+`,
+llmLogsAvgLatency: (hours) => `
+  SELECT AVG(CAST("llm_response_time_ms" AS DOUBLE)) AS v FROM ...
+  -- CAST a DOUBLE antes del AVG: si la columna es INTEGER, la suma acumulada
+  -- puede desbordar el rango INTEGER con muchos registros. DOUBLE evita el overflow.
+`,
 ```
 
 **Por qué no prepared statements:** `@sap/hana-client` soporta prepared statements, pero los parámetros aquí son enteros validados (`h` con clamp [1,168]) y nombres de tabla que provienen de una whitelist interna — no de input de usuario. El riesgo de SQL injection es nulo.
@@ -558,13 +654,19 @@ export async function generatePdf(report: ReportData): Promise<void> {
 ```yaml
 applications:
   - name: 3rpc-dashboard
-    memory: 512M
+    memory: 1500M
     buildpacks:
       - nodejs_buildpack
     command: npm start
+    env:
+      NODE_OPTIONS: --max-old-space-size=1200
 ```
 
-512MB es suficiente para el runtime Next.js + driver HANA. `npm start` ejecuta el servidor de producción pre-compilado (`next start`).
+**Por qué 1500M:** Cloud Foundry asigna memoria al contenedor completo (OS + Node.js + binarios HANA). Node.js por defecto detecta el límite del contenedor y ajusta el heap al ~90%, lo que en versiones anteriores dejaba solo ~820MB para V8. Con datasets grandes, esto causaba `FATAL ERROR: CALL_AND_RETRY_LAST Allocation failed - JavaScript heap out of memory` (exit 134).
+
+**Por qué `--max-old-space-size=1200`:** Fija explícitamente el heap V8 a 1200MB, independiente de lo que el runtime detecte del contenedor. Deja ~300MB para el OS y overhead del proceso. La arquitectura de agregación en servidor (HANA hace el GROUP BY, solo llegan 100 filas al browser) asegura que el heap nunca se llena con datasets completos.
+
+`npm start` ejecuta el servidor de producción pre-compilado (`next start`).
 
 ### `next.config.ts`
 
@@ -670,7 +772,9 @@ interface LlmLog {
 | 3 | **JSON inválido devuelto por Gemini** | Baja | Medio | `JSON.parse` falla explícitamente; el catch devuelve 500 con mensaje descriptivo. El ChatWidget muestra el error al usuario. Pendiente: reintentar la llamada automáticamente. |
 | 4 | **Memoria en browser para PDFs grandes** | Baja | Bajo | jsPDF construye el PDF en memoria. Para >100 hallazgos, el blob puede exceder 10MB. Mitigación: el prompt de Gemini limita hallazgos a los más relevantes; en la práctica los reportes son <500KB. |
 | 5 | **HANA SSL sin validación de certificado** | Media | Medio | `sslValidateCertificate: false` expone a MITM en red no controlada. En CF la conexión sale por red privada SAP BTP — riesgo real bajo. Para producción, configurar `sslTrustStore` con el certificado de HANA. |
-| 6 | **Timeout de queries HANA lentas** | Baja | Medio | Queries con `h=168` sobre millones de filas pueden tardar >30s. El driver no tiene timeout configurable en este wrapper. Mitigación: añadir `LIMIT` en queries grandes o índice sobre `timestamp` en HANA. |
+| 6 | **Timeout de queries HANA lentas** | Baja | Medio | Queries con `h=168` sobre millones de filas pueden tardar >30s. El driver no tiene timeout configurable en este wrapper. Mitigación: las queries de stats usan agregación SQL (rápidas en HANA columnar); solo las filas paginadas (100 filas) podrían ser lentas si no hay índice sobre `timestamp`. |
 | 7 | **Build fallido por binarios nativos en CF** | Baja | Alto | `@sap/hana-client` descarga binarios según plataforma en `npm install`. CF usa Linux x64; el buildpack instala dependencias en el contenedor. Si el binario no está disponible para la versión de Node.js del buildpack, el deploy falla. Monitorear compatibilidad al actualizar Node.js. |
+| 8 | **OOM crash en Cloud Foundry (exit 134)** | Baja | Alto | Resuelta con arquitectura de agregación en servidor. Riesgo residual: si se añaden queries que traigan todas las filas al heap (sin paginación), puede reaparecer. Regla: toda query sobre tablas grandes debe usar `ROW_NUMBER()` con límite de 100 filas, o retornar solo agregados. |
+| 9 | **Numeric overflow en AVG de columnas INTEGER** | Baja | Medio | HANA puede lanzar `numeric overflow` al sumar muchos valores INTEGER para calcular AVG (la suma intermedia supera el rango del tipo). Mitigación: usar siempre `AVG(CAST("col" AS DOUBLE))` en lugar de `AVG("col")` para columnas numéricas. Actualmente aplicado en `llm_response_time_ms`. |
 
 ---
