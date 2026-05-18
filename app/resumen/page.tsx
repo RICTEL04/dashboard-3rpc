@@ -117,9 +117,15 @@ export default function ResumenPage() {
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-brand-purple/10 border border-brand-purple/20
-                        flex items-center justify-center">
-          <BarChart3 className="w-5 h-5 text-brand-purple" />
+        <div
+          className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+          style={{
+            background: 'linear-gradient(135deg, #AB63FA 0%, #7c35d4 100%)',
+            boxShadow: '0 0 26px rgba(171,99,250,0.38), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.14)',
+            border: '1px solid rgba(171,99,250,0.45)',
+          }}
+        >
+          <BarChart3 className="w-5 h-5 text-white" />
         </div>
         <div>
           <h1 className="text-lg font-bold text-text-primary">Resumen General</h1>

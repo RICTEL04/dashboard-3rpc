@@ -62,9 +62,14 @@ export function Sidebar() {
       {/* ── Logo ── */}
       <div className="px-5 py-5 border-b border-surface-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-brand-blue/15 border border-brand-blue/30
-                          flex items-center justify-center">
-            <ShieldAlert className="w-4 h-4 text-brand-blue" />
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{
+              background: 'linear-gradient(135deg, #636EFA 0%, #4148d4 100%)',
+              boxShadow: '0 0 22px rgba(99,110,250,0.38), 0 2px 8px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.18)',
+            }}
+          >
+            <ShieldAlert className="w-4 h-4 text-white" />
           </div>
           <div>
             <div className="font-bold text-text-primary text-sm tracking-wide">3RPC</div>
@@ -90,10 +95,19 @@ export function Sidebar() {
                             : 'text-text-secondary hover:text-text-primary hover:bg-surface-overlay'
                           }`}
             >
-              <Icon
-                className="w-4 h-4 flex-shrink-0 transition-colors"
-                style={{ color: active ? color : undefined }}
-              />
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                style={active ? {
+                  background: `linear-gradient(135deg, ${color}28, ${color}12)`,
+                  boxShadow: `0 0 12px ${color}28, inset 0 1px 0 rgba(255,255,255,0.07)`,
+                  border: `1px solid ${color}30`,
+                } : {}}
+              >
+                <Icon
+                  className="w-3.5 h-3.5 flex-shrink-0 transition-colors"
+                  style={{ color: active ? color : undefined }}
+                />
+              </div>
               <span className="flex-1">{label}</span>
               {active && <ChevronRight className="w-3 h-3 opacity-40" />}
             </Link>

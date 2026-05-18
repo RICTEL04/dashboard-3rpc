@@ -224,21 +224,41 @@ export function ChatWidget() {
   return (
     <>
       {/* Toggle button */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 rounded-full
-                   bg-brand-blue shadow-lg shadow-brand-blue/30
-                   flex items-center justify-center
-                   hover:bg-brand-blue/90 transition-all duration-200
-                   hover:scale-105 active:scale-95"
-        style={{ width: 52, height: 52 }}
-        aria-label="Abrir asistente IA"
-      >
-        {open
-          ? <ChevronDown className="w-5 h-5 text-white" />
-          : <Bot className="w-5 h-5 text-white" />
-        }
-      </button>
+      <div className="fixed bottom-6 right-6 z-50" style={{ width: 52, height: 52 }}>
+
+        {/* Anillos de pulso — solo cuando está cerrado */}
+        {!open && (
+          <>
+            <span className="chat-ring absolute inset-0 rounded-full bg-brand-blue/40 pointer-events-none" />
+            <span className="chat-ring-2 absolute inset-0 rounded-full bg-brand-blue/25 pointer-events-none" />
+          </>
+        )}
+
+        {/* Partícula orbitando — solo cuando está cerrado */}
+        {!open && (
+          <span className="chat-orbit absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <span className="block w-2 h-2 rounded-full bg-white shadow-[0_0_6px_2px_rgba(99,110,250,0.8)]" />
+          </span>
+        )}
+
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className={`
+            absolute inset-0 rounded-full
+            bg-brand-blue shadow-lg shadow-brand-blue/40
+            flex items-center justify-center
+            hover:bg-brand-blue/90 transition-all duration-200
+            hover:scale-105 active:scale-95
+            ${!open ? 'chat-float' : ''}
+          `}
+          aria-label="Abrir asistente IA"
+        >
+          {open
+            ? <ChevronDown className="w-5 h-5 text-white" />
+            : <Bot className="w-5 h-5 text-white" />
+          }
+        </button>
+      </div>
 
       {/* Chat panel */}
       {open && (

@@ -79,3 +79,31 @@ input[type='range']::-webkit-slider-thumb:hover {
 .data-table tr:hover td {
   background: rgba(33,38,45,0.6);
 }
+
+/* ── KPI card shimmer ── */
+@keyframes shimmer-slide {
+  0%   { transform: translateX(-150%); }
+  100% { transform: translateX(250%); }
+}
+.kpi-shimmer { animation: shimmer-slide 3.5s ease-in-out infinite; }
+
+/* ── Chat bot animations ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-7px); }
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1);    opacity: 0.5; }
+  100% { transform: scale(1.75); opacity: 0; }
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg)   translateX(28px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(28px) rotate(-360deg); }
+}
+
+.chat-float    { animation: float 3s ease-in-out infinite; }
+.chat-ring     { animation: pulse-ring 2s ease-out infinite; }
+.chat-ring-2   { animation: pulse-ring 2s ease-out infinite 0.8s; }
+.chat-orbit    { animation: orbit 4s linear infinite; }

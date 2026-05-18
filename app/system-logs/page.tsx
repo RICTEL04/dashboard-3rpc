@@ -7,7 +7,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, Database, Globe, AlertTriangle, Layers } from 'lucide-react';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { VolumeChart } from '@/components/charts/VolumeChart';
 import type { SystemLog, VolumeRow } from '@/types';
@@ -65,9 +65,15 @@ export default function SystemLogsPage() {
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-brand-blue/10 border border-brand-blue/20
-                        flex items-center justify-center">
-          <ShieldAlert className="w-5 h-5 text-brand-blue" />
+        <div
+          className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+          style={{
+            background: 'linear-gradient(135deg, #636EFA 0%, #4148d4 100%)',
+            boxShadow: '0 0 26px rgba(99,110,250,0.4), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.14)',
+            border: '1px solid rgba(99,110,250,0.45)',
+          }}
+        >
+          <ShieldAlert className="w-5 h-5 text-white" />
         </div>
         <div>
           <h1 className="text-lg font-bold text-text-primary">System Logs</h1>
@@ -77,12 +83,12 @@ export default function SystemLogsPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard label="Total registros"      value={Number(total).toLocaleString()}    accent="#636EFA" />
-        <KpiCard label="IPs únicas"           value={Number(uniqIps).toLocaleString()} accent="#19D3F3" />
+        <KpiCard label="Total registros"      value={Number(total).toLocaleString()}    accent="#636EFA" icon={<Database className="w-4 h-4" />} />
+        <KpiCard label="IPs únicas"           value={Number(uniqIps).toLocaleString()} accent="#19D3F3" icon={<Globe className="w-4 h-4" />} />
         <KpiCard label="Eventos de seguridad" value={Number(secEvents).toLocaleString()}
                  sub={total ? `${(Number(secEvents) / Number(total) * 100).toFixed(1)}% del total` : undefined}
-                 accent="#EF553B" />
-        <KpiCard label="Tipo de logs"         value={logtypeDist.length} accent="#AB63FA" />
+                 accent="#EF553B" icon={<AlertTriangle className="w-4 h-4" />} />
+        <KpiCard label="Tipo de logs"         value={logtypeDist.length} accent="#AB63FA" icon={<Layers className="w-4 h-4" />} />
       </div>
 
       {/* Volume timeline */}

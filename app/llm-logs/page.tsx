@@ -62,9 +62,15 @@ function LlmLogsContent() {
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-brand-green/10 border border-brand-green/20
-                        flex items-center justify-center">
-          <Bot className="w-5 h-5 text-brand-green" />
+        <div
+          className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+          style={{
+            background: 'linear-gradient(135deg, #00CC96 0%, #008f68 100%)',
+            boxShadow: '0 0 26px rgba(0,204,150,0.38), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.14)',
+            border: '1px solid rgba(0,204,150,0.45)',
+          }}
+        >
+          <Bot className="w-5 h-5 text-white" />
         </div>
         <div>
           <h1 className="text-lg font-bold text-text-primary">LLM Logs</h1>
