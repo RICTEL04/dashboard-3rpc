@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Bot, X, Send, Loader2, ChevronDown, Sparkles, RefreshCw, FileDown } from 'lucide-react';
 import { generatePdf, type ReportData } from '@/lib/generatePdf';
+import { MarkdownMessage } from '@/components/ui/MarkdownMessage';
 
 interface Message {
   role: 'user' | 'model';
@@ -80,20 +81,22 @@ async function fetchDashboardContext(hours: number, secOnly: boolean): Promise<s
 function MessageBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === 'user';
   return (
-    <div className={`flex gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'} animate-fade-in`}>
       {!isUser && (
-        <div className="w-6 h-6 rounded-full bg-brand-blue/20 border border-brand-blue/30
-                        flex items-center justify-center flex-shrink-0 mt-0.5">
-          <Sparkles className="w-3 h-3 text-brand-blue" />
+        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-blue/30 to-brand-blue/10
+                        border border-brand-blue/30 ring-1 ring-brand-blue/10
+                        flex items-center justify-center flex-shrink-0 mt-0.5
+                        shadow-sm shadow-brand-blue/20">
+          <Sparkles className="w-3.5 h-3.5 text-brand-blue" />
         </div>
       )}
-      <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap
+      <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed
           ${isUser
-            ? 'bg-brand-blue text-white rounded-tr-sm'
-            : 'bg-surface-raised border border-surface-border text-text-primary rounded-tl-sm'
+            ? 'bg-brand-blue text-white rounded-tr-md shadow-sm shadow-brand-blue/20 whitespace-pre-wrap'
+            : 'bg-surface-raised border border-surface-border text-text-primary rounded-tl-md'
           }`}
       >
-        {msg.text}
+        {isUser ? msg.text : <MarkdownMessage text={msg.text} />}
       </div>
     </div>
   );
@@ -113,7 +116,6 @@ export function ChatWidget() {
   const hours   = Number(searchParams.get('h') ?? 24);
   const secOnly = searchParams.get('secOnly') === '1';
 
-  // Auto-load context and greet when chat opens
   const initChat = useCallback(async () => {
     setCtxLoading(true);
     setMessages([{ role: 'model', text: 'Cargando datos del dashboard…' }]);
@@ -127,7 +129,6 @@ export function ChatWidget() {
     }
     setCtxLoading(false);
 
-    // Ask Gemini for an opening summary with the loaded context
     try {
       const initMsg: Message = { role: 'user', text: 'Dame un resumen breve del estado de seguridad actual basándote en los datos del dashboard.' };
       const res = await fetch('/api/chat', {
@@ -143,9 +144,7 @@ export function ChatWidget() {
   }, [hours, secOnly]);
 
   useEffect(() => {
-    if (open && messages.length === 0) {
-      initChat();
-    }
+    if (open && messages.length === 0) initChat();
   }, [open]);
 
   useEffect(() => {
@@ -223,7 +222,6 @@ export function ChatWidget() {
 
   return (
     <>
-      {/* Toggle button */}
       <button
         onClick={() => setOpen((v) => !v)}
         className="fixed bottom-6 right-6 z-50 rounded-full
@@ -240,14 +238,12 @@ export function ChatWidget() {
         }
       </button>
 
-      {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-[76px] right-6 z-50 w-[390px] max-h-[580px]
+        <div className="fixed bottom-[76px] right-6 z-50 w-[420px] h-[640px] max-h-[calc(100vh-104px)]
                         flex flex-col rounded-2xl overflow-hidden
-                        bg-surface-base border border-surface-border
-                        shadow-2xl shadow-black/40">
+                        bg-surface-base/95 backdrop-blur-md border border-surface-border
+                        shadow-2xl shadow-black/50 ring-1 ring-white/5">
 
-          {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3
                           bg-surface-raised border-b border-surface-border flex-shrink-0">
             <div className="w-7 h-7 rounded-lg bg-brand-blue/15 border border-brand-blue/30
@@ -291,16 +287,15 @@ export function ChatWidget() {
             </button>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0 chat-scroll">
             {messages.map((m, i) => <MessageBubble key={i} msg={m} />)}
             {loading && (
               <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-full bg-brand-blue/20 border border-brand-blue/30
+                <div className="w-7 h-7 rounded-full bg-brand-blue/20 border border-brand-blue/30
                                 flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-3 h-3 text-brand-blue" />
+                  <Sparkles className="w-3.5 h-3.5 text-brand-blue" />
                 </div>
-                <div className="bg-surface-raised border border-surface-border rounded-xl rounded-tl-sm px-3 py-2">
+                <div className="bg-surface-raised border border-surface-border rounded-2xl rounded-tl-md px-3.5 py-2.5">
                   <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
                 </div>
               </div>
@@ -308,7 +303,6 @@ export function ChatWidget() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Suggestions — show after init message loads */}
           {messages.length === 1 && !ctxLoading && (
             <div className="px-3 pb-2 flex flex-wrap gap-1.5 flex-shrink-0">
               {SUGGESTIONS.map((s) => (
@@ -325,7 +319,6 @@ export function ChatWidget() {
             </div>
           )}
 
-          {/* Input */}
           <div className="px-3 pb-3 flex-shrink-0">
             <div className="flex gap-2 items-end bg-surface-raised border border-surface-border
                             rounded-xl px-3 py-2 focus-within:border-brand-blue/50 transition-colors">
