@@ -115,53 +115,99 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* ── Hours slider ── */}
-      <div className="px-4 py-4 border-t border-surface-border">
-        <div className="flex items-center justify-between mb-3">
-          <span className="flex items-center gap-1.5 text-[10px] font-semibold
-                           uppercase tracking-widest text-text-secondary">
-            <Clock className="w-3 h-3" />
-            Ventana de datos
-          </span>
-          <span className="text-sm font-mono font-bold text-brand-blue">{sliderVal}h</span>
-        </div>
+      {/* ── Hours slider + Refresh ── */}
+      <div className="px-3 py-3 border-t border-surface-border space-y-2.5">
 
-        <input
-          type="range"
-          min={1} max={168} step={1}
-          value={sliderVal}
-          onChange={(e) => handleSliderChange(Number(e.target.value))}
-        />
-
-        <div className="flex justify-between mt-1.5">
-          {[1, 6, 24, 72, 168].map((v) => (
-            <button
-              key={v}
-              onClick={() => setHours(v)}
-              className={`text-[10px] px-1.5 py-0.5 rounded transition-colors
-                          ${sliderVal === v
-                            ? 'text-brand-blue font-bold'
-                            : 'text-text-muted hover:text-text-secondary'
-                          }`}
+        {/* Card glassmorphism */}
+        <div
+          className="rounded-2xl p-4"
+          style={{
+            background: 'linear-gradient(145deg, rgba(99,110,250,0.07) 0%, rgba(13,17,28,0.85) 100%)',
+            border: '1px solid rgba(99,110,250,0.14)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+          }}
+        >
+          {/* Label + valor actual */}
+          <div className="flex items-center justify-between mb-4">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">
+              <Clock className="w-3 h-3" />
+              Ventana de datos
+            </span>
+            <span
+              className="text-base font-mono font-extrabold leading-none tabular-nums"
+              style={{ color: '#636EFA', textShadow: '0 0 18px rgba(99,110,250,0.55)' }}
             >
-              {v === 168 ? '7d' : v === 72 ? '3d' : v === 24 ? '24h' : v === 6 ? '6h' : '1h'}
-            </button>
-          ))}
-        </div>
-      </div>
+              {sliderVal}h
+            </span>
+          </div>
 
-      {/* ── Refresh ── */}
-      <div className="px-4 pb-5">
+          {/* Slider con fill dinámico */}
+          <div className="mb-4">
+            <input
+              type="range"
+              min={1} max={168} step={1}
+              value={sliderVal}
+              onChange={(e) => handleSliderChange(Number(e.target.value))}
+              style={{
+                background: `linear-gradient(to right,
+                  #636EFA 0%,
+                  #4148d4 ${(sliderVal - 1) / 167 * 100}%,
+                  rgba(255,255,255,0.07) ${(sliderVal - 1) / 167 * 100}%,
+                  rgba(255,255,255,0.07) 100%)`,
+              }}
+            />
+          </div>
+
+          {/* Chips de presets */}
+          <div className="grid grid-cols-5 gap-1">
+            {([
+              { v: 1,   label: '1h'  },
+              { v: 6,   label: '6h'  },
+              { v: 24,  label: '24h' },
+              { v: 72,  label: '3d'  },
+              { v: 168, label: '7d'  },
+            ]).map(({ v, label }) => {
+              const active = sliderVal === v;
+              return (
+                <button
+                  key={v}
+                  onClick={() => setHours(v)}
+                  className="py-1.5 rounded-lg text-[10px] font-bold transition-all duration-200 cursor-pointer"
+                  style={active ? {
+                    background: 'linear-gradient(135deg, #636EFA, #4148d4)',
+                    color: '#fff',
+                    boxShadow: '0 0 14px rgba(99,110,250,0.45)',
+                  } : {
+                    background: 'rgba(255,255,255,0.04)',
+                    color: '#6e7681',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Botón Refresh */}
         <button
           onClick={handleRefresh}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg
-                     bg-surface-overlay text-text-secondary text-xs font-medium
-                     hover:bg-surface-border hover:text-text-primary transition-all"
+          disabled={spinning}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
+                     text-xs font-semibold transition-all duration-200 cursor-pointer
+                     disabled:opacity-60"
+          style={{
+            background: 'linear-gradient(135deg, rgba(99,110,250,0.12), rgba(99,110,250,0.05))',
+            border: '1px solid rgba(99,110,250,0.2)',
+            color: '#636EFA',
+          }}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${spinning ? 'animate-spin' : ''}`} />
           Actualizar datos
         </button>
-        <p className="text-[10px] text-text-muted text-center mt-2">
+        <p className="text-[10px] text-text-muted text-center">
           Auto-refresco cada 60 s
         </p>
       </div>

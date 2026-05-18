@@ -28,23 +28,28 @@ input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  background: #30363d;
+  height: 3px;
+  border-radius: 99px;
   outline: none;
+  cursor: pointer;
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 17px;
+  height: 17px;
   border-radius: 50%;
-  background: #636EFA;
+  background: linear-gradient(135deg, #636EFA, #4148d4);
   cursor: pointer;
-  box-shadow: 0 0 0 3px rgba(99,110,250,.25);
-  transition: box-shadow 0.15s ease;
+  border: 2px solid rgba(255,255,255,0.28);
+  box-shadow: 0 0 0 3px rgba(99,110,250,0.22), 0 0 14px rgba(99,110,250,0.45);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 input[type='range']::-webkit-slider-thumb:hover {
-  box-shadow: 0 0 0 5px rgba(99,110,250,.3);
+  box-shadow: 0 0 0 5px rgba(99,110,250,0.28), 0 0 20px rgba(99,110,250,0.55);
+  transform: scale(1.12);
+}
+input[type='range']:active::-webkit-slider-thumb {
+  transform: scale(0.93);
 }
 
 /* Table */
