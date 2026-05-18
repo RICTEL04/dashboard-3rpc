@@ -88,9 +88,9 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
   const isAnom    = Boolean(d.anomaly_type);
 
   const base: React.CSSProperties = {
-    background: '#161b22', border: '1px solid #30363d', borderRadius: 8,
+    background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10,
     fontSize: 12, padding: '8px 12px', maxWidth: 300,
-    boxShadow: '0 4px 16px rgba(0,0,0,.4)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
   };
 
   if (!isAnom) {

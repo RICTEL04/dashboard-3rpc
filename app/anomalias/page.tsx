@@ -143,7 +143,8 @@ function AnomalyCard({ a, isSelected }: { a: Anomaly; isSelected?: boolean }) {
                     <XAxis type="number" tick={{ fill: '#8b949e', fontSize: 10 }} axisLine={false} tickLine={false} />
                     <YAxis type="category" dataKey="name" tick={{ fill: '#8b949e', fontSize: 10 }} axisLine={false} tickLine={false} width={140} />
                     <Tooltip
-                      contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 6, fontSize: 11 }}
+                      cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                      contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 11, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }}
                       formatter={(v) => [(v as number).toFixed(2), '|Z-Score|']}
                     />
                     <Bar dataKey="z" radius={[0, 3, 3, 0]}>
@@ -361,7 +362,8 @@ export default function AnomaliesPage() {
                   <XAxis type="number" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="name" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} width={130} />
                   <Tooltip
-                    contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }}
+                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                    contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }}
                     formatter={(v) => [v, 'Anomalías']}
                   />
                   <Bar dataKey="value" fill="#EF553B" radius={[0, 4, 4, 0]} />
@@ -378,7 +380,7 @@ export default function AnomaliesPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,110,250,.06)" vertical={false} />
                   <XAxis dataKey="type" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
+                  <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }} />
                   <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
                   {(['HIGH', 'MEDIUM', 'LOW'] as Severity[]).map((s) => (
                     <Bar key={s} dataKey={s} stackId="a" fill={SEV_COLOR[s]} radius={s === 'LOW' ? [3, 3, 0, 0] : [0, 0, 0, 0]} />

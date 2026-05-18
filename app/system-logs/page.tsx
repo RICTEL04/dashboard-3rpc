@@ -124,7 +124,7 @@ export default function SystemLogsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,110,250,.06)" vertical={false} />
               <XAxis dataKey="name" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
+              <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {logtypeDist.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Bar>
@@ -142,7 +142,7 @@ export default function SystemLogsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,110,250,.06)" vertical={false} />
               <XAxis dataKey="name" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
+              <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {statusDist.map((d: { color: string }, i: number) => <Cell key={i} fill={d.color} />)}
               </Bar>
@@ -160,7 +160,7 @@ export default function SystemLogsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,110,250,.06)" horizontal={false} />
               <XAxis type="number" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis type="category" dataKey="name" tick={{ fill: '#8b949e', fontSize: 10 }} axisLine={false} tickLine={false} width={120} />
-              <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
+              <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }} />
               <Bar dataKey="value" fill="#EF553B" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -177,7 +177,7 @@ export default function SystemLogsPage() {
                    cx="50%" cy="50%" innerRadius="45%" outerRadius="70%" paddingAngle={2}>
                 {envDist.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
+              <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }} />
               <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
             </PieChart>
           </ResponsiveContainer>

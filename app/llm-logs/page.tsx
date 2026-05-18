@@ -120,7 +120,7 @@ function LlmLogsContent() {
                    cx="50%" cy="50%" innerRadius="40%" outerRadius="68%" paddingAngle={2}>
                 {modelDist.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
+              <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }} />
               <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
             </PieChart>
           </ResponsiveContainer>
@@ -136,7 +136,7 @@ function LlmLogsContent() {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,110,250,.06)" vertical={false} />
               <XAxis dataKey="name" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
+              <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {finishDist.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Bar>
@@ -154,7 +154,7 @@ function LlmLogsContent() {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,110,250,.06)" vertical={false} />
               <XAxis dataKey="name" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }}
+              <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }}
                 formatter={(v: number) => [`${Number(v).toFixed(0)} ms`]} />
               <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
               <Bar dataKey="avg" name="Promedio" fill="#00CC96" radius={[4, 4, 0, 0]} />
@@ -174,7 +174,7 @@ function LlmLogsContent() {
               <XAxis type="number" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false}
                 tickFormatter={(v) => `$${Number(v).toFixed(3)}`} />
               <YAxis type="category" dataKey="name" tick={{ fill: '#8b949e', fontSize: 10 }} axisLine={false} tickLine={false} width={100} />
-              <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }}
+              <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3' }}
                 formatter={(v: number) => [`$${Number(v).toFixed(4)}`, 'Costo']} />
               <Bar dataKey="value" fill="#FFA15A" radius={[0, 4, 4, 0]} />
             </BarChart>

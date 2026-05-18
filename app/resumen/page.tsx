@@ -48,8 +48,11 @@ function fmtLabel(t: number) {
 }
 
 const CHART_STYLE = {
-  background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12,
+  background: '#0d1117', border: '1px solid rgba(99,110,250,0.18)', borderRadius: 10, fontSize: 12,
+  boxShadow: '0 8px 32px rgba(0,0,0,0.6)', color: '#e6edf3',
 };
+const CURSOR_BAR  = { fill: 'rgba(255,255,255,0.04)' };
+const CURSOR_LINE = { stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 };
 
 export default function ResumenPage() {
   const sp    = useSearchParams();
@@ -174,7 +177,7 @@ export default function ResumenPage() {
                    tickFormatter={fmtTick} tick={{ fill: '#8b949e', fontSize: 11 }}
                    axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
-            <Tooltip contentStyle={CHART_STYLE} labelFormatter={(t) => fmtLabel(t as number)} />
+            <Tooltip cursor={CURSOR_LINE} contentStyle={CHART_STYLE} labelFormatter={(t) => fmtLabel(t as number)} />
             <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
             <Area type="monotone" dataKey="Total"   stroke="#636EFA" strokeWidth={1.5} fill="url(#gradTotal)" dot={false} />
             <Area type="monotone" dataKey="Sistema" stroke="#EF553B" strokeWidth={1.5} fill="none"            dot={false} />
@@ -196,7 +199,7 @@ export default function ResumenPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,110,250,.06)" vertical={false} />
               <XAxis dataKey="name" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={CHART_STYLE} />
+              <Tooltip cursor={CURSOR_BAR} contentStyle={CHART_STYLE} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {sysTypeDist.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Bar>
@@ -215,7 +218,7 @@ export default function ResumenPage() {
                    cx="50%" cy="50%" innerRadius="40%" outerRadius="65%" paddingAngle={2}>
                 {llmTypeDist.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={CHART_STYLE} />
+              <Tooltip cursor={CURSOR_BAR} contentStyle={CHART_STYLE} />
               <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
             </PieChart>
           </ResponsiveContainer>
@@ -231,7 +234,7 @@ export default function ResumenPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,110,250,.06)" horizontal={false} />
               <XAxis type="number" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis type="category" dataKey="name" tick={{ fill: '#8b949e', fontSize: 10 }} axisLine={false} tickLine={false} width={110} />
-              <Tooltip contentStyle={CHART_STYLE} />
+              <Tooltip cursor={CURSOR_BAR} contentStyle={CHART_STYLE} />
               <Bar dataKey="value" fill="#636EFA" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -250,7 +253,7 @@ export default function ResumenPage() {
                    labelLine={false}>
                 {secPie.map((d, i) => <Cell key={i} fill={d.fill} />)}
               </Pie>
-              <Tooltip contentStyle={CHART_STYLE} />
+              <Tooltip cursor={CURSOR_BAR} contentStyle={CHART_STYLE} />
               <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
             </PieChart>
           </ResponsiveContainer>
